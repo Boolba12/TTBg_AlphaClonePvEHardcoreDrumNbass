@@ -8,6 +8,7 @@ public class MapRenderer : MonoBehaviour
     public float cellHeight = 0.1f;
     public Vector2 cellOffset = Vector2.zero;
     [Range(0.01f, 1f)] public float cellOffsetNoiseScale = 0.25f;
+    public bool fillInteriorHoles = true;
     public bool autoRender = true;
     
     private static Mesh sharedPlaneMesh;
@@ -136,19 +137,25 @@ public class MapRenderer : MonoBehaviour
             submeshTriangles[i] = new List<int>();
 
         Vector2Int startCell = mapGenerator.GetStartCell();
+        bool[,] interiorHoleMask = GetInteriorHoleMask(width, height);
+        int[,] nearestPlayableSubmeshMap = GetNearestPlayableSubmeshMap(width, height);
         int playableCellsRendered = 0;
 
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
-                if (!mapGenerator.GetIsPlayable(x, y))
+                bool isPlayable = mapGenerator.GetIsPlayable(x, y);
+                bool shouldFillHole = fillInteriorHoles && !isPlayable && interiorHoleMask[x, y];
+
+                if (!isPlayable && !shouldFillHole)
                     continue;
 
-                playableCellsRendered++;
+                if (isPlayable)
+                    playableCellsRendered++;
 
-                bool isStart = x == startCell.x && y == startCell.y;
-                int submeshIndex = GetSubmeshIndex(x, y, isStart);
+                bool isStart = isPlayable && x == startCell.x && y == startCell.y;
+                int submeshIndex = shouldFillHole ? nearestPlayableSubmeshMap[x, y] : GetSubmeshIndex(x, y, isStart);
 
                 int bottomLeft = x + y * vertCols;
                 int bottomRight = (x + 1) + y * vertCols;
@@ -233,7 +240,12 @@ public class MapRenderer : MonoBehaviour
         if (isStart)
             return 0;
 
-        return mapGenerator.GetBiomeAt(x, y) switch
+        return GetBiomeSubmeshIndex(mapGenerator.GetBiomeAt(x, y));
+    }
+
+    private int GetBiomeSubmeshIndex(BiomeType biome)
+    {
+        return biome switch
         {
             BiomeType.Forest => 1,
             BiomeType.Desert => 2,
@@ -243,6 +255,102 @@ public class MapRenderer : MonoBehaviour
             BiomeType.Jungle => 6,
             _ => 5
         };
+    }
+
+    private bool[,] GetInteriorHoleMask(int width, int height)
+    {
+        bool[,] exteriorBlocked = new bool[width, height];
+        Queue<Vector2Int> queue = new Queue<Vector2Int>();
+
+        for (int x = 0; x < width; x++)
+        {
+            EnqueueExteriorBlockedCell(x, 0, width, height, exteriorBlocked, queue);
+            EnqueueExteriorBlockedCell(x, height - 1, width, height, exteriorBlocked, queue);
+        }
+
+        for (int y = 0; y < height; y++)
+        {
+            EnqueueExteriorBlockedCell(0, y, width, height, exteriorBlocked, queue);
+            EnqueueExteriorBlockedCell(width - 1, y, width, height, exteriorBlocked, queue);
+        }
+
+        while (queue.Count > 0)
+        {
+            Vector2Int cell = queue.Dequeue();
+
+            EnqueueExteriorBlockedCell(cell.x + 1, cell.y, width, height, exteriorBlocked, queue);
+            EnqueueExteriorBlockedCell(cell.x - 1, cell.y, width, height, exteriorBlocked, queue);
+            EnqueueExteriorBlockedCell(cell.x, cell.y + 1, width, height, exteriorBlocked, queue);
+            EnqueueExteriorBlockedCell(cell.x, cell.y - 1, width, height, exteriorBlocked, queue);
+        }
+
+        bool[,] interiorHoles = new bool[width, height];
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                interiorHoles[x, y] = !mapGenerator.GetIsPlayable(x, y) && !exteriorBlocked[x, y];
+            }
+        }
+
+        return interiorHoles;
+    }
+
+    private void EnqueueExteriorBlockedCell(int x, int y, int width, int height, bool[,] exteriorBlocked, Queue<Vector2Int> queue)
+    {
+        if (x < 0 || x >= width || y < 0 || y >= height)
+            return;
+
+        if (mapGenerator.GetIsPlayable(x, y) || exteriorBlocked[x, y])
+            return;
+
+        exteriorBlocked[x, y] = true;
+        queue.Enqueue(new Vector2Int(x, y));
+    }
+
+    private int[,] GetNearestPlayableSubmeshMap(int width, int height)
+    {
+        int[,] nearestPlayableSubmeshMap = new int[width, height];
+        Queue<Vector2Int> queue = new Queue<Vector2Int>();
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                nearestPlayableSubmeshMap[x, y] = -1;
+
+                if (!mapGenerator.GetIsPlayable(x, y))
+                    continue;
+
+                nearestPlayableSubmeshMap[x, y] = GetBiomeSubmeshIndex(mapGenerator.GetBiomeAt(x, y));
+                queue.Enqueue(new Vector2Int(x, y));
+            }
+        }
+
+        while (queue.Count > 0)
+        {
+            Vector2Int cell = queue.Dequeue();
+            int submeshIndex = nearestPlayableSubmeshMap[cell.x, cell.y];
+
+            PropagatePlayableSubmesh(cell.x + 1, cell.y, width, height, submeshIndex, nearestPlayableSubmeshMap, queue);
+            PropagatePlayableSubmesh(cell.x - 1, cell.y, width, height, submeshIndex, nearestPlayableSubmeshMap, queue);
+            PropagatePlayableSubmesh(cell.x, cell.y + 1, width, height, submeshIndex, nearestPlayableSubmeshMap, queue);
+            PropagatePlayableSubmesh(cell.x, cell.y - 1, width, height, submeshIndex, nearestPlayableSubmeshMap, queue);
+        }
+
+        return nearestPlayableSubmeshMap;
+    }
+
+    private void PropagatePlayableSubmesh(int x, int y, int width, int height, int submeshIndex, int[,] nearestPlayableSubmeshMap, Queue<Vector2Int> queue)
+    {
+        if (x < 0 || x >= width || y < 0 || y >= height)
+            return;
+
+        if (nearestPlayableSubmeshMap[x, y] != -1)
+            return;
+
+        nearestPlayableSubmeshMap[x, y] = submeshIndex;
+        queue.Enqueue(new Vector2Int(x, y));
     }
 
     private Material[] GetMapMaterials()

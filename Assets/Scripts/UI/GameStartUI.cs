@@ -11,6 +11,7 @@ public class GameStartUI : MonoBehaviour
     [Header("Map")]
     public MapGenerator mapGenerator;
     public MapRenderer mapRenderer;
+    public MapRockPlacer mapRockPlacer;
 
     private void Awake()
     {
@@ -60,6 +61,9 @@ public class GameStartUI : MonoBehaviour
 
         mapGenerator.Generate();
         mapRenderer.RenderMap();
+
+        if (mapRockPlacer != null)
+            mapRockPlacer.PlaceEnvironment();
 
         if (menuRoot != null)
         {

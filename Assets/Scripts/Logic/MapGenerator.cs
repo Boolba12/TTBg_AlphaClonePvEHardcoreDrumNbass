@@ -139,7 +139,7 @@ public class MapGenerator : MonoBehaviour
         }
     }
 
-    private Color GetBiomeColor(BiomeType biome)
+    public Color GetBiomeColor(BiomeType biome)
     {
         return biome switch
         {

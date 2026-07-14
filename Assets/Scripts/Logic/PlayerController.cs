@@ -8,17 +8,26 @@ public class PlayerController : MonoBehaviour
     public MapRenderer mapRenderer;
     public Camera inputCamera;
     public float movementCooldown = 0.1f;
+    [Range(0.02f, 0.5f)] public float movementStepDuration = 0.12f;
     public float worldDepthOffset = 0.05f;
     public float pathLineHeight = 0.08f;
     public float pathLineWidth = 0.08f;
     public Color pathLineColor = Color.cyan;
 
+    public Vector2Int CurrentCell => currentCell;
+    public event System.Action<Vector2Int> OnPlayerMoved;
+
     private Vector2Int currentCell;
     private bool hasPlaced;
+    private bool isMoving;
     private float nextMoveTime;
+    private float moveStartTime;
     private readonly Queue<Vector2Int> queuedPathSteps = new Queue<Vector2Int>();
     private readonly List<Vector2Int> currentPath = new List<Vector2Int>();
     private LineRenderer pathLineRenderer;
+    private Vector2Int moveTargetCell;
+    private Vector3 moveStartPosition;
+    private Vector3 moveTargetPosition;
 
     private static readonly Vector2Int[] CardinalDirections =
     {
@@ -38,16 +47,18 @@ public class PlayerController : MonoBehaviour
         if (!TryPlaceOnStartCell())
             return;
 
+        UpdateActiveMovement();
+
         TryHandleMousePathRequest();
 
-        if (queuedPathSteps.Count > 0 && Time.time >= nextMoveTime)
+        if (!isMoving && queuedPathSteps.Count > 0 && Time.time >= nextMoveTime)
         {
             Vector2Int nextStep = queuedPathSteps.Dequeue();
-            MoveToCell(nextStep);
+            BeginMoveToCell(nextStep);
             UpdatePathLine();
         }
 
-        if (Time.time < nextMoveTime)
+        if (isMoving || Time.time < nextMoveTime)
             return;
 
         Vector2Int direction = Vector2Int.zero;
@@ -75,6 +86,7 @@ public class PlayerController : MonoBehaviour
         mapGenerator = generator;
         mapRenderer = renderer;
         hasPlaced = false;
+        isMoving = false;
         queuedPathSteps.Clear();
         currentPath.Clear();
         UpdatePathLine();
@@ -90,6 +102,7 @@ public class PlayerController : MonoBehaviour
 
         currentCell = mapGenerator.GetCentralPlayableCell();
         transform.position = mapRenderer.GetCellWorldCenter(currentCell) + Vector3.forward * worldDepthOffset;
+        moveTargetPosition = transform.position;
         hasPlaced = true;
         UpdatePathLine();
         return true;
@@ -97,6 +110,9 @@ public class PlayerController : MonoBehaviour
 
     private void TryHandleMousePathRequest()
     {
+        if (isMoving)
+            return;
+
         if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame)
             return;
 
@@ -188,14 +204,36 @@ public class PlayerController : MonoBehaviour
         if (!mapGenerator.GetIsPlayable(nextCell.x, nextCell.y))
             return;
 
-        MoveToCell(nextCell);
+        BeginMoveToCell(nextCell);
     }
 
-    private void MoveToCell(Vector2Int cell)
+    private void BeginMoveToCell(Vector2Int cell)
     {
-        currentCell = cell;
-        transform.position = mapRenderer.GetCellWorldCenter(currentCell) + Vector3.forward * worldDepthOffset;
+        isMoving = true;
+        moveTargetCell = cell;
+        moveStartTime = Time.time;
+        moveStartPosition = transform.position;
+        moveTargetPosition = mapRenderer.GetCellWorldCenter(cell) + Vector3.forward * worldDepthOffset;
         nextMoveTime = Time.time + movementCooldown;
+    }
+
+    private void UpdateActiveMovement()
+    {
+        if (!isMoving)
+            return;
+
+        float duration = Mathf.Max(0.01f, movementStepDuration);
+        float t = Mathf.Clamp01((Time.time - moveStartTime) / duration);
+        float easedT = Mathf.SmoothStep(0f, 1f, t);
+        transform.position = Vector3.Lerp(moveStartPosition, moveTargetPosition, easedT);
+
+        if (t < 1f)
+            return;
+
+        transform.position = moveTargetPosition;
+        currentCell = moveTargetCell;
+        isMoving = false;
+        OnPlayerMoved?.Invoke(currentCell);
     }
 
     private void EnsurePathLineRenderer()
