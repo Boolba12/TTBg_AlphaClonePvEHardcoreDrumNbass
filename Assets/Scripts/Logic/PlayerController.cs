@@ -7,19 +7,35 @@ public class PlayerController : MonoBehaviour
     public MapGenerator mapGenerator;
     public MapRenderer mapRenderer;
     public Camera inputCamera;
+    [Header("Turn")]
+    public bool useTurnSystem = true;
+    [Min(1)] public int maxStepsPerTurn = 6;
+
+    [Header("Movement")]
     public float movementCooldown = 0.1f;
     [Range(0.02f, 0.5f)] public float movementStepDuration = 0.12f;
     public float worldDepthOffset = 0.05f;
+
+    [Header("Alignment")]
+    public bool autoCenterVisualOnCell = true;
+    public Vector2 manualCellOffsetXZ = Vector2.zero;
+
+    [Header("Path Preview")]
     public float pathLineHeight = 0.08f;
     public float pathLineWidth = 0.08f;
     public Color pathLineColor = Color.cyan;
 
     public Vector2Int CurrentCell => currentCell;
     public event System.Action<Vector2Int> OnPlayerMoved;
+    public event System.Action OnTurnMoveCompleted;
 
     private Vector2Int currentCell;
     private bool hasPlaced;
+    private bool isPlayerTurn = true;
     private bool isMoving;
+    private bool isExecutingMoveSequence;
+    private bool hasPreviewTarget;
+    private Vector2Int previewTargetCell;
     private float nextMoveTime;
     private float moveStartTime;
     private readonly Queue<Vector2Int> queuedPathSteps = new Queue<Vector2Int>();
@@ -28,6 +44,7 @@ public class PlayerController : MonoBehaviour
     private Vector2Int moveTargetCell;
     private Vector3 moveStartPosition;
     private Vector3 moveTargetPosition;
+    private Vector3 visualCenterOffsetXZ;
 
     private static readonly Vector2Int[] CardinalDirections =
     {
@@ -40,6 +57,7 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         EnsurePathLineRenderer();
+        CacheVisualCenterOffset();
     }
 
     private void Update()
@@ -49,8 +67,6 @@ public class PlayerController : MonoBehaviour
 
         UpdateActiveMovement();
 
-        TryHandleMousePathRequest();
-
         if (!isMoving && queuedPathSteps.Count > 0 && Time.time >= nextMoveTime)
         {
             Vector2Int nextStep = queuedPathSteps.Dequeue();
@@ -58,7 +74,15 @@ public class PlayerController : MonoBehaviour
             UpdatePathLine();
         }
 
-        if (isMoving || Time.time < nextMoveTime)
+        if (isMoving || queuedPathSteps.Count > 0 || Time.time < nextMoveTime)
+            return;
+
+        if (useTurnSystem && !isPlayerTurn)
+            return;
+
+        TryHandleMousePathRequest();
+
+        if (useTurnSystem)
             return;
 
         Vector2Int direction = Vector2Int.zero;
@@ -87,9 +111,20 @@ public class PlayerController : MonoBehaviour
         mapRenderer = renderer;
         hasPlaced = false;
         isMoving = false;
+        isExecutingMoveSequence = false;
+        hasPreviewTarget = false;
+        CacheVisualCenterOffset();
         queuedPathSteps.Clear();
         currentPath.Clear();
         UpdatePathLine();
+    }
+
+    public void SetPlayerTurn(bool active)
+    {
+        isPlayerTurn = active;
+
+        if (!active)
+            ClearPreviewPath();
     }
 
     private bool TryPlaceOnStartCell()
@@ -100,8 +135,8 @@ public class PlayerController : MonoBehaviour
         if (mapGenerator == null || mapRenderer == null || !mapRenderer.HasMap)
             return false;
 
-        currentCell = mapGenerator.GetCentralPlayableCell();
-        transform.position = mapRenderer.GetCellWorldCenter(currentCell) + Vector3.forward * worldDepthOffset;
+        currentCell = mapGenerator.GetStartCell();
+        transform.position = GetCellWorldPosition(currentCell);
         moveTargetPosition = transform.position;
         hasPlaced = true;
         UpdatePathLine();
@@ -130,6 +165,37 @@ public class PlayerController : MonoBehaviour
         if (!TryBuildPath(currentCell, targetCell, out List<Vector2Int> path))
             return;
 
+        if (useTurnSystem)
+        {
+            HandleTurnBasedPathClick(targetCell, path);
+            return;
+        }
+
+        StartMoveSequence(path);
+    }
+
+    private void HandleTurnBasedPathClick(Vector2Int targetCell, List<Vector2Int> path)
+    {
+        int steps = Mathf.Max(0, path.Count - 1);
+        bool clickedSameTarget = hasPreviewTarget && targetCell == previewTargetCell;
+
+        hasPreviewTarget = true;
+        previewTargetCell = targetCell;
+        currentPath.Clear();
+        currentPath.AddRange(path);
+        UpdatePathLine();
+
+        if (!clickedSameTarget)
+            return;
+
+        if (steps <= 0 || steps > maxStepsPerTurn)
+            return;
+
+        StartMoveSequence(path);
+    }
+
+    private void StartMoveSequence(List<Vector2Int> path)
+    {
         queuedPathSteps.Clear();
         currentPath.Clear();
         currentPath.AddRange(path);
@@ -137,6 +203,8 @@ public class PlayerController : MonoBehaviour
         for (int i = 1; i < path.Count; i++)
             queuedPathSteps.Enqueue(path[i]);
 
+        isExecutingMoveSequence = queuedPathSteps.Count > 0;
+        hasPreviewTarget = false;
         UpdatePathLine();
     }
 
@@ -213,8 +281,35 @@ public class PlayerController : MonoBehaviour
         moveTargetCell = cell;
         moveStartTime = Time.time;
         moveStartPosition = transform.position;
-        moveTargetPosition = mapRenderer.GetCellWorldCenter(cell) + Vector3.forward * worldDepthOffset;
+        moveTargetPosition = GetCellWorldPosition(cell);
         nextMoveTime = Time.time + movementCooldown;
+    }
+
+    private Vector3 GetCellWorldPosition(Vector2Int cell)
+    {
+        Vector3 pos = mapRenderer.GetCellWorldCenter(cell) + Vector3.up * worldDepthOffset;
+        pos += new Vector3(manualCellOffsetXZ.x, 0f, manualCellOffsetXZ.y);
+
+        if (autoCenterVisualOnCell)
+            pos -= visualCenterOffsetXZ;
+
+        return pos;
+    }
+
+    private void CacheVisualCenterOffset()
+    {
+        visualCenterOffsetXZ = Vector3.zero;
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] == null || renderers[i] is LineRenderer)
+                continue;
+
+            Vector3 delta = renderers[i].bounds.center - transform.position;
+            visualCenterOffsetXZ = new Vector3(delta.x, 0f, delta.z);
+            return;
+        }
     }
 
     private void UpdateActiveMovement()
@@ -234,6 +329,24 @@ public class PlayerController : MonoBehaviour
         currentCell = moveTargetCell;
         isMoving = false;
         OnPlayerMoved?.Invoke(currentCell);
+
+        if (!isExecutingMoveSequence || queuedPathSteps.Count > 0)
+            return;
+
+        isExecutingMoveSequence = false;
+        if (useTurnSystem)
+        {
+            ClearPreviewPath();
+            OnTurnMoveCompleted?.Invoke();
+        }
+    }
+
+    private void ClearPreviewPath()
+    {
+        hasPreviewTarget = false;
+        currentPath.Clear();
+        queuedPathSteps.Clear();
+        UpdatePathLine();
     }
 
     private void EnsurePathLineRenderer()

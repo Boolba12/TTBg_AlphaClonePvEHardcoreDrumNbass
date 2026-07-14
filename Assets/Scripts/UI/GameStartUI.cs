@@ -12,6 +12,8 @@ public class GameStartUI : MonoBehaviour
     public MapGenerator mapGenerator;
     public MapRenderer mapRenderer;
     public MapRockPlacer mapRockPlacer;
+    public PlayerController playerController;
+    public EnemyController enemyController;
 
     private void Awake()
     {
@@ -61,6 +63,12 @@ public class GameStartUI : MonoBehaviour
 
         mapGenerator.Generate();
         mapRenderer.RenderMap();
+
+        if (playerController != null)
+            playerController.SetMapReferences(mapGenerator, mapRenderer);
+
+        if (enemyController != null)
+            enemyController.SetMapReferences(mapGenerator, mapRenderer, playerController);
 
         if (mapRockPlacer != null)
             mapRockPlacer.PlaceEnvironment();

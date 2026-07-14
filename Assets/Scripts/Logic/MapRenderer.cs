@@ -137,7 +137,7 @@ public class MapRenderer : MonoBehaviour
             submeshTriangles[i] = new List<int>();
 
         Vector2Int startCell = mapGenerator.GetStartCell();
-        bool[,] interiorHoleMask = GetInteriorHoleMask(width, height);
+        bool[,] interiorHoleMask = MapInteriorHoleUtility.BuildInteriorHoleMask(mapGenerator);
         int[,] nearestPlayableSubmeshMap = GetNearestPlayableSubmeshMap(width, height);
         int playableCellsRendered = 0;
 
@@ -255,57 +255,6 @@ public class MapRenderer : MonoBehaviour
             BiomeType.Jungle => 6,
             _ => 5
         };
-    }
-
-    private bool[,] GetInteriorHoleMask(int width, int height)
-    {
-        bool[,] exteriorBlocked = new bool[width, height];
-        Queue<Vector2Int> queue = new Queue<Vector2Int>();
-
-        for (int x = 0; x < width; x++)
-        {
-            EnqueueExteriorBlockedCell(x, 0, width, height, exteriorBlocked, queue);
-            EnqueueExteriorBlockedCell(x, height - 1, width, height, exteriorBlocked, queue);
-        }
-
-        for (int y = 0; y < height; y++)
-        {
-            EnqueueExteriorBlockedCell(0, y, width, height, exteriorBlocked, queue);
-            EnqueueExteriorBlockedCell(width - 1, y, width, height, exteriorBlocked, queue);
-        }
-
-        while (queue.Count > 0)
-        {
-            Vector2Int cell = queue.Dequeue();
-
-            EnqueueExteriorBlockedCell(cell.x + 1, cell.y, width, height, exteriorBlocked, queue);
-            EnqueueExteriorBlockedCell(cell.x - 1, cell.y, width, height, exteriorBlocked, queue);
-            EnqueueExteriorBlockedCell(cell.x, cell.y + 1, width, height, exteriorBlocked, queue);
-            EnqueueExteriorBlockedCell(cell.x, cell.y - 1, width, height, exteriorBlocked, queue);
-        }
-
-        bool[,] interiorHoles = new bool[width, height];
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < height; y++)
-            {
-                interiorHoles[x, y] = !mapGenerator.GetIsPlayable(x, y) && !exteriorBlocked[x, y];
-            }
-        }
-
-        return interiorHoles;
-    }
-
-    private void EnqueueExteriorBlockedCell(int x, int y, int width, int height, bool[,] exteriorBlocked, Queue<Vector2Int> queue)
-    {
-        if (x < 0 || x >= width || y < 0 || y >= height)
-            return;
-
-        if (mapGenerator.GetIsPlayable(x, y) || exteriorBlocked[x, y])
-            return;
-
-        exteriorBlocked[x, y] = true;
-        queue.Enqueue(new Vector2Int(x, y));
     }
 
     private int[,] GetNearestPlayableSubmeshMap(int width, int height)

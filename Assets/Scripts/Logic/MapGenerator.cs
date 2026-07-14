@@ -42,6 +42,7 @@ public class MapGenerator : MonoBehaviour
     private HashSet<Vector2Int> playableCells;
     private HashSet<Vector2Int> frontierCells;
     [HideInInspector] public int generatedPlayableCount;
+    public int GenerationVersion { get; private set; }
 
     public bool HasGeneratedData => isPlayable != null;
 
@@ -64,6 +65,9 @@ public class MapGenerator : MonoBehaviour
     {
         if (width <= 0 || height <= 0)
             return;
+
+        MapInteriorHoleUtility.InvalidateCache(this);
+        GenerationVersion++;
 
         playableCount = Mathf.Min(playableCount, width * height);
         isPlayable = new bool[width, height];
