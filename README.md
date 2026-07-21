@@ -1,9 +1,9 @@
-# Tactical Turn-Based Game
+D# Tactical Turn-Based Game
 
 Unity project for a tactical turn-based prototype with procedural map generation, biome rendering, and player movement.
 
 ## Clone and Run
-
+Kumis
 1. Clone the repository.
 2. Open Unity Hub.
 3. Add this folder as a project.
