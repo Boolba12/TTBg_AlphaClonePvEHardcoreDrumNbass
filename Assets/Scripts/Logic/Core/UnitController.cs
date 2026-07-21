@@ -11,6 +11,7 @@ public abstract class UnitController : MonoBehaviour
     public float movementCooldown = 0.1f;
     [Range(0.02f, 0.5f)] public float movementStepDuration = 0.12f;
     public float worldDepthOffset = 0.05f;
+    public bool allowDiagonalMovement;
 
     public Vector2Int CurrentCell => currentCell;
     public Vector2Int LastCell => lastCell;
@@ -29,6 +30,26 @@ public abstract class UnitController : MonoBehaviour
         new Vector2Int(-1, 0),
         new Vector2Int(0, 1),
         new Vector2Int(0, -1)
+    };
+
+    protected static readonly Vector2Int[] DiagonalDirections =
+    {
+        new Vector2Int(1, 1),
+        new Vector2Int(1, -1),
+        new Vector2Int(-1, 1),
+        new Vector2Int(-1, -1)
+    };
+
+    protected static readonly Vector2Int[] AllDirections =
+    {
+        new Vector2Int(1, 0),
+        new Vector2Int(-1, 0),
+        new Vector2Int(0, 1),
+        new Vector2Int(0, -1),
+        new Vector2Int(1, 1),
+        new Vector2Int(1, -1),
+        new Vector2Int(-1, 1),
+        new Vector2Int(-1, -1)
     };
 
     private Vector2Int currentCell;
@@ -144,6 +165,7 @@ public abstract class UnitController : MonoBehaviour
         visited.Add(start);
 
         bool found = false;
+        Vector2Int[] directions = GetPathDirections();
         while (queue.Count > 0)
         {
             Vector2Int current = queue.Dequeue();
@@ -153,7 +175,7 @@ public abstract class UnitController : MonoBehaviour
                 break;
             }
 
-            foreach (var dir in CardinalDirections)
+            foreach (var dir in directions)
             {
                 Vector2Int next = current + dir;
                 if (visited.Contains(next))
@@ -181,6 +203,11 @@ public abstract class UnitController : MonoBehaviour
 
         path.Reverse();
         return true;
+    }
+
+    protected Vector2Int[] GetPathDirections()
+    {
+        return allowDiagonalMovement ? AllDirections : CardinalDirections;
     }
 
     protected virtual Vector3 GetCellWorldPosition(Vector2Int cell)

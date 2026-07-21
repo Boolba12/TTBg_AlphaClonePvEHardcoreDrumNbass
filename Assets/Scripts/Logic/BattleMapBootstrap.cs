@@ -17,13 +17,20 @@ public class BattleMapBootstrap : MonoBehaviour
     [Min(4)] public int battleHeight = 16;
     [Min(4)] public int battlePlayableCount = 180;
 
+    [Header("Battle Movement")]
+    public bool enableDiagonalMovement = true;
+
     [Header("Startup")]
     [Range(0f, 3f)] public float bootstrapTimeoutSeconds = 1.5f;
+
+    [Header("Battle Setup")]
+    public GameObject battleContextMenuRoot;
 
     private bool hasBootstrapped;
 
     private void Start()
     {
+        BattleSetupContext.Reset();
         StartCoroutine(BootstrapRoutine());
     }
 
@@ -41,6 +48,15 @@ public class BattleMapBootstrap : MonoBehaviour
         }
 
         TryAutoAssignReferences();
+
+        if (battleContextMenuRoot != null)
+            battleContextMenuRoot.SetActive(true);
+
+        while (!BattleSetupContext.IsConfirmed)
+        {
+            TryAutoAssignReferences();
+            yield return null;
+        }
 
         if (mapGenerator == null || mapRenderer == null)
         {
@@ -92,6 +108,11 @@ public class BattleMapBootstrap : MonoBehaviour
 
         playerController.SetMapReferences(mapGenerator, mapRenderer);
         enemyController.SetMapReferences(mapGenerator, mapRenderer, playerController);
+        playerController.allowDiagonalMovement = enableDiagonalMovement;
+        enemyController.allowDiagonalMovement = enableDiagonalMovement;
+
+        int playerUnitCount = Mathf.Max(1, BattleSetupContext.PlayerUnitCount);
+        Debug.Log($"BattleMapBootstrap: starting battle with {playerUnitCount} player unit(s).");
 
         Vector2Int playerSource = BattleEncounterContext.HasEncounterData
             ? BattleEncounterContext.PlayerEncounterCell
