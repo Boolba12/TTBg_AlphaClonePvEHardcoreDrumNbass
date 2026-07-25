@@ -7,6 +7,8 @@ public class BattleMapBootstrap : MonoBehaviour
     public MapRenderer mapRenderer;
     public PlayerController playerController;
     public EnemyController enemyController;
+    [Tooltip("Optional squad layer that composes with the existing player/enemy controllers.")]
+    public SquadBattleBootstrap squadBattleBootstrap;
 
     [Header("Fallback")]
     public int fallbackSeed = 0;
@@ -136,6 +138,9 @@ public class BattleMapBootstrap : MonoBehaviour
 
         playerController.ForceSpawnAtCell(playerSpawn);
         enemyController.ForceSpawnAtCell(enemySpawn);
+
+        if (squadBattleBootstrap != null)
+            squadBattleBootstrap.InitializeSelectedSquads(playerSpawn, enemySpawn);
     }
 
     private Vector2Int FindSideSpawnCell(bool horizontal, bool positiveSide, Vector2Int? avoidCell = null)
