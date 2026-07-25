@@ -15,6 +15,7 @@ public abstract class UnitController : MonoBehaviour
 
     public Vector2Int CurrentCell => currentCell;
     public Vector2Int LastCell => lastCell;
+    public bool IsMovementInProgress => IsMovementBusy;
 
     protected bool hasPlaced;
     protected bool isMoving;

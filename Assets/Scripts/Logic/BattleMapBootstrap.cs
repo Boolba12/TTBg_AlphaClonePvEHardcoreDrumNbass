@@ -110,6 +110,7 @@ public class BattleMapBootstrap : MonoBehaviour
 
         playerController.SetMapReferences(mapGenerator, mapRenderer);
         enemyController.SetMapReferences(mapGenerator, mapRenderer, playerController);
+        playerController.useTurnSystem = true;
         playerController.allowDiagonalMovement = enableDiagonalMovement;
         enemyController.allowDiagonalMovement = enableDiagonalMovement;
 

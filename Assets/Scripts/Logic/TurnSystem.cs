@@ -20,24 +20,34 @@ public class TurnSystem : MonoBehaviour
 
     private bool enemyTurnRunning;
     private bool battleLoadingTriggered;
+    private bool isSubscribedToPlayer;
+    private Vector2Int lastResolvedPlayerCell;
+    private bool hasLastResolvedPlayerCell;
 
     public bool IsEnemyTurnRunning => enemyTurnRunning;
     public string CurrentTurnLabel => enemyTurnRunning ? "Enemy" : "Player";
 
+    private void Awake()
+    {
+        TryAutoAssignReferences();
+    }
+
     private void OnEnable()
     {
-        if (playerController != null)
-            playerController.OnTurnMoveCompleted += HandlePlayerTurnCompleted;
+        TryAutoAssignReferences();
+        HookPlayerEvents();
     }
 
     private void OnDisable()
     {
-        if (playerController != null)
-            playerController.OnTurnMoveCompleted -= HandlePlayerTurnCompleted;
+        UnhookPlayerEvents();
     }
 
     private void Start()
     {
+        TryAutoAssignReferences();
+        HookPlayerEvents();
+
         if (playerController != null && playerController.enemyController == null)
             playerController.enemyController = enemyController;
 
@@ -49,10 +59,82 @@ public class TurnSystem : MonoBehaviour
 
         if (cameraFollow != null && playerController != null)
             cameraFollow.target = playerController.transform;
+
+        if (playerController != null)
+        {
+            lastResolvedPlayerCell = playerController.CurrentCell;
+            hasLastResolvedPlayerCell = true;
+        }
+    }
+
+    private void Update()
+    {
+        TryAutoAssignReferences();
+        HookPlayerEvents();
+
+        if (enemyTurnRunning || battleLoadingTriggered)
+            return;
+
+        if (playerController == null || enemyController == null)
+            return;
+
+        if (!playerController.useTurnSystem)
+            return;
+
+        if (!hasLastResolvedPlayerCell)
+        {
+            lastResolvedPlayerCell = playerController.CurrentCell;
+            hasLastResolvedPlayerCell = true;
+            return;
+        }
+
+        if (playerController.IsMovementInProgress)
+            return;
+
+        if (playerController.CurrentCell == lastResolvedPlayerCell)
+            return;
+
+        HandlePlayerTurnCompleted();
+    }
+
+    private void TryAutoAssignReferences()
+    {
+        if (playerController == null)
+            playerController = FindAnyObjectByType<PlayerController>();
+
+        if (enemyController == null)
+            enemyController = FindAnyObjectByType<EnemyController>();
+
+        if (cameraFollow == null)
+            cameraFollow = FindAnyObjectByType<CameraFollow>();
+    }
+
+    private void HookPlayerEvents()
+    {
+        if (isSubscribedToPlayer || playerController == null)
+            return;
+
+        playerController.OnTurnMoveCompleted += HandlePlayerTurnCompleted;
+        isSubscribedToPlayer = true;
+    }
+
+    private void UnhookPlayerEvents()
+    {
+        if (!isSubscribedToPlayer || playerController == null)
+            return;
+
+        playerController.OnTurnMoveCompleted -= HandlePlayerTurnCompleted;
+        isSubscribedToPlayer = false;
     }
 
     private void HandlePlayerTurnCompleted()
     {
+        if (playerController != null)
+        {
+            lastResolvedPlayerCell = playerController.CurrentCell;
+            hasLastResolvedPlayerCell = true;
+        }
+
         if (TryTriggerBattleEncounter(EncounterInitiator.Player))
             return;
 
