@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class PlayerController : UnitController
@@ -122,6 +123,9 @@ public class PlayerController : UnitController
     private void TryHandleMousePathRequest()
     {
         if (Mouse.current == null || !Mouse.current.leftButton.wasPressedThisFrame)
+            return;
+
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             return;
 
         Camera cam = inputCamera != null ? inputCamera : Camera.main;

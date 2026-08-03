@@ -8,8 +8,12 @@ public static class CommanderPortraitDatabaseBuilder
 {
     public const string PortraitRoot = "Assets/Art/CommanderPortraits";
     public const string DatabasePath = PortraitRoot + "/CommanderPortraitDatabase.asset";
+    public const string ImportedHumanRoot =
+        "Assets/Scripts/CommanderPortraits/CommanderPortraitHuman";
+    public const string ImportedElfRoot =
+        "Assets/Scripts/CommanderPortraits/CommanderPortraitElf";
 
-    private static readonly Dictionary<string, CommanderRace> FolderRaces =
+    private static readonly Dictionary<string, CommanderRace> CanonicalFolderRaces =
         new Dictionary<string, CommanderRace>(StringComparer.OrdinalIgnoreCase)
         {
             { PortraitRoot + "/Humans/", CommanderRace.Human },
@@ -17,6 +21,13 @@ public static class CommanderPortraitDatabaseBuilder
             { PortraitRoot + "/Dwarves/", CommanderRace.Dwarf },
             { PortraitRoot + "/Orcs/", CommanderRace.Orc },
             { PortraitRoot + "/Tieflings/", CommanderRace.Tiefling }
+        };
+
+    private static readonly Dictionary<string, CommanderRace> FolderRaces =
+        new Dictionary<string, CommanderRace>(CanonicalFolderRaces, StringComparer.OrdinalIgnoreCase)
+        {
+            { ImportedHumanRoot + "/", CommanderRace.Human },
+            { ImportedElfRoot + "/", CommanderRace.Elf }
         };
 
     public static bool IsRebuilding { get; private set; }
@@ -85,7 +96,8 @@ public static class CommanderPortraitDatabaseBuilder
         List<CommanderPortraitEntry> entries = new List<CommanderPortraitEntry>();
         HashSet<string> ids = new HashSet<string>();
 
-        foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { PortraitRoot }))
+        string[] searchRoots = GetExistingSearchRoots();
+        foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", searchRoots))
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
             if (!IsPortraitImagePath(path) || !TryGetRaceFromAssetPath(path, out CommanderRace race))
@@ -114,16 +126,38 @@ public static class CommanderPortraitDatabaseBuilder
 
     private static void EnsureSpriteImport(string path)
     {
-        if (AssetImporter.GetAtPath(path) is not TextureImporter importer ||
-            importer.textureType == TextureImporterType.Sprite)
-        {
+        if (AssetImporter.GetAtPath(path) is not TextureImporter importer)
             return;
-        }
 
-        importer.textureType = TextureImporterType.Sprite;
-        importer.spriteImportMode = SpriteImportMode.Single;
+        bool changed = false;
+        changed |= SetIfDifferent(importer.textureType, TextureImporterType.Sprite,
+            value => importer.textureType = value);
+        changed |= SetIfDifferent(importer.spriteImportMode, SpriteImportMode.Single,
+            value => importer.spriteImportMode = value);
+        changed |= SetIfDifferent(importer.mipmapEnabled, false,
+            value => importer.mipmapEnabled = value);
+        changed |= SetIfDifferent(importer.sRGBTexture, true,
+            value => importer.sRGBTexture = value);
+        changed |= SetIfDifferent(importer.alphaIsTransparency, true,
+            value => importer.alphaIsTransparency = value);
+        changed |= SetIfDifferent(importer.npotScale, TextureImporterNPOTScale.None,
+            value => importer.npotScale = value);
+        changed |= SetIfDifferent(importer.wrapMode, TextureWrapMode.Clamp,
+            value => importer.wrapMode = value);
+        changed |= SetIfDifferent(importer.filterMode, FilterMode.Bilinear,
+            value => importer.filterMode = value);
+        changed |= SetIfDifferent(importer.maxTextureSize, 1024,
+            value => importer.maxTextureSize = value);
+        changed |= SetIfDifferent(
+            importer.textureCompression,
+            TextureImporterCompression.CompressedHQ,
+            value => importer.textureCompression = value);
+
+        if (!changed)
+            return;
+
         importer.SaveAndReimport();
-        Debug.Log($"Commander portraits: changed '{path}' Texture Type to Sprite.");
+        Debug.Log($"Commander portraits: normalized Sprite import settings for '{path}'.");
     }
 
     private static void EnsureFolders()
@@ -138,11 +172,31 @@ public static class CommanderPortraitDatabaseBuilder
             current = next;
         }
 
-        foreach (string folderWithSlash in FolderRaces.Keys)
+        foreach (string folderWithSlash in CanonicalFolderRaces.Keys)
         {
             string folder = folderWithSlash.TrimEnd('/');
             if (!AssetDatabase.IsValidFolder(folder))
                 AssetDatabase.CreateFolder(PortraitRoot, Path.GetFileName(folder));
         }
+    }
+
+    private static string[] GetExistingSearchRoots()
+    {
+        List<string> roots = new List<string>();
+        foreach (string folderWithSlash in FolderRaces.Keys)
+        {
+            string folder = folderWithSlash.TrimEnd('/');
+            if (AssetDatabase.IsValidFolder(folder))
+                roots.Add(folder);
+        }
+        return roots.ToArray();
+    }
+
+    private static bool SetIfDifferent<T>(T current, T expected, Action<T> setter)
+    {
+        if (EqualityComparer<T>.Default.Equals(current, expected))
+            return false;
+        setter(expected);
+        return true;
     }
 }

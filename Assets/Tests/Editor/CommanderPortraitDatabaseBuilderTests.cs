@@ -7,6 +7,8 @@ public sealed class CommanderPortraitDatabaseBuilderTests
     [TestCase("Assets/Art/CommanderPortraits/Dwarves/A.png", CommanderRace.Dwarf)]
     [TestCase("Assets/Art/CommanderPortraits/Orcs/A.png", CommanderRace.Orc)]
     [TestCase("Assets/Art/CommanderPortraits/Tieflings/A.png", CommanderRace.Tiefling)]
+    [TestCase("Assets/Scripts/CommanderPortraits/CommanderPortraitHuman/A.png", CommanderRace.Human)]
+    [TestCase("Assets/Scripts/CommanderPortraits/CommanderPortraitElf/A.png", CommanderRace.Elf)]
     public void RaceComesFromFolder(string path, CommanderRace expected)
     {
         Assert.That(

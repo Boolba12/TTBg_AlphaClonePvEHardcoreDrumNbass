@@ -23,6 +23,7 @@ public class BattleContextMenuUI : MonoBehaviour
 
     private int currentUnitCount;
     private int currentWeaponIndex = -1;
+    private bool confirmationSubmitted;
 
     private void Awake()
     {
@@ -98,10 +99,31 @@ public class BattleContextMenuUI : MonoBehaviour
 
     public void ConfirmBattleSetup()
     {
+        TryConfirmBattleSetup(out _);
+    }
+
+    public bool TryConfirmBattleSetup(out string reason)
+    {
+        if (confirmationSubmitted || BattleSetupContext.IsConfirmed)
+        {
+            reason = "Battle setup has already been confirmed.";
+            return false;
+        }
+
+        if (!BattleSetupContext.HasSelection || BattleSetupContext.PlayerUnitCount < 1)
+        {
+            reason = "Battle setup selection is missing or invalid.";
+            return false;
+        }
+
         BattleSetupContext.Confirm();
+        confirmationSubmitted = true;
 
         if (menuRoot != null)
             menuRoot.SetActive(false);
+
+        reason = null;
+        return true;
     }
 
     private void CommitSelection()

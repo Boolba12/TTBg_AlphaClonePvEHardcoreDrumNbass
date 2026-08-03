@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9eec8b54c7372a8458c2da5606d0257a, type: 3}
+  m_Name: DevelopmentItemPresentationCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::ItemPresentationCatalog
+  entries:
+  - stableId: dev-legacy-test-weapon
+    displayName: Legacy Test Weapon
+    previewSprite: {fileID: 0}
+    modelPrefab: {fileID: 0}
+    category: 5
+    developmentDescription: Existing Unity primitive weapon reference. No matching
+      Blender item model or verified preview image is present in the project, so
+      the gallery shows a controlled placeholder.
+    placeholder: 1
+    sourceWeapon: {fileID: 11400000, guid: a7fb672563cec764d87efb8d2b9dd82e, type: 2}

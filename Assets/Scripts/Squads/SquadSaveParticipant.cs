@@ -12,7 +12,8 @@ public sealed class SquadSavePayload
 public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
 {
     [SerializeField] private List<SquadData> squads = new List<SquadData>();
-    [SerializeField] private bool saveActiveBattleState = true;
+    [Tooltip("Development-only until production mid-battle restore is integrated.")]
+    [SerializeField] private bool saveActiveBattleState;
 
     private readonly Dictionary<string, SquadBattleRuntime> activeRuntimes =
         new Dictionary<string, SquadBattleRuntime>();
@@ -21,6 +22,12 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
 
     public string SaveKey => "squads";
     public IReadOnlyList<SquadData> Squads => squads;
+    public int ActiveRuntimeCount => activeRuntimes.Count;
+
+    public void SetActiveBattleStateSaving(bool enabled)
+    {
+        saveActiveBattleState = enabled;
+    }
 
     public bool TryAddSquad(SquadData squad, out string error)
     {
@@ -57,6 +64,12 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
         if (runtime?.Data == null)
             return;
         activeRuntimes[runtime.Data.Id] = runtime;
+    }
+
+    public void UnregisterRuntime(string squadId)
+    {
+        if (!string.IsNullOrWhiteSpace(squadId))
+            activeRuntimes.Remove(squadId);
     }
 
     public string CaptureState()
