@@ -12,18 +12,28 @@ public sealed class SquadFormationView : MonoBehaviour
     private readonly List<GameObject> warriorModels = new List<GameObject>();
     private SquadBattleRuntime boundRuntime;
     private GameObject commanderModel;
+    private GameObject activeCommanderPrefab;
+    private GameObject activeWarriorPrefab;
 
     public int CommanderModelCount => commanderModel != null ? 1 : 0;
     public int WarriorModelCount => warriorModels.Count;
     public int ActiveWarriorModelCount =>
         warriorModels.FindAll(model => model != null && model.activeSelf).Count;
 
-    public bool Bind(SquadBattleRuntime runtime)
+    public bool Bind(
+        SquadBattleRuntime runtime,
+        SquadFormationPresentation presentation = null)
     {
         if (runtime == null)
             return false;
 
         Unbind();
+        activeCommanderPrefab = presentation != null && presentation.IsValid
+            ? presentation.CommanderPrefab
+            : commanderModelPrefab;
+        activeWarriorPrefab = presentation != null && presentation.IsValid
+            ? presentation.WarriorPrefab
+            : warriorModelPrefab;
         if (!EnsureModels(runtime.Data.Warriors.Count))
             return false;
 
@@ -82,7 +92,7 @@ public sealed class SquadFormationView : MonoBehaviour
     private bool EnsureModels(int warriorCount)
     {
         if (modelsContainer == null || commanderSlot == null ||
-            commanderModelPrefab == null || warriorModelPrefab == null)
+            activeCommanderPrefab == null || activeWarriorPrefab == null)
         {
             Debug.LogError("SquadFormationView: model container, slots, or model prefabs are missing.", this);
             return false;
@@ -100,13 +110,13 @@ public sealed class SquadFormationView : MonoBehaviour
 
         if (commanderModel == null)
         {
-            commanderModel = Instantiate(commanderModelPrefab, modelsContainer);
+            commanderModel = Instantiate(activeCommanderPrefab, modelsContainer);
             commanderModel.name = "CommanderModel";
         }
 
         while (warriorModels.Count < warriorCount)
         {
-            GameObject model = Instantiate(warriorModelPrefab, modelsContainer);
+            GameObject model = Instantiate(activeWarriorPrefab, modelsContainer);
             model.name = $"WarriorModel_{warriorModels.Count + 1:00}";
             warriorModels.Add(model);
         }

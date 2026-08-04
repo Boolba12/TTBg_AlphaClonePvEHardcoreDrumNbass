@@ -9,9 +9,9 @@ public static class CommanderPortraitDatabaseBuilder
     public const string PortraitRoot = "Assets/Art/CommanderPortraits";
     public const string DatabasePath = PortraitRoot + "/CommanderPortraitDatabase.asset";
     public const string ImportedHumanRoot =
-        "Assets/Scripts/CommanderPortraits/CommanderPortraitHuman";
+        PortraitRoot + "/Humans";
     public const string ImportedElfRoot =
-        "Assets/Scripts/CommanderPortraits/CommanderPortraitElf";
+        PortraitRoot + "/Elves";
 
     private static readonly Dictionary<string, CommanderRace> CanonicalFolderRaces =
         new Dictionary<string, CommanderRace>(StringComparer.OrdinalIgnoreCase)
@@ -24,11 +24,9 @@ public static class CommanderPortraitDatabaseBuilder
         };
 
     private static readonly Dictionary<string, CommanderRace> FolderRaces =
-        new Dictionary<string, CommanderRace>(CanonicalFolderRaces, StringComparer.OrdinalIgnoreCase)
-        {
-            { ImportedHumanRoot + "/", CommanderRace.Human },
-            { ImportedElfRoot + "/", CommanderRace.Elf }
-        };
+        new Dictionary<string, CommanderRace>(
+            CanonicalFolderRaces,
+            StringComparer.OrdinalIgnoreCase);
 
     public static bool IsRebuilding { get; private set; }
 

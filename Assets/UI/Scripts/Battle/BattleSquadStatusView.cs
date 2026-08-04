@@ -1,3 +1,4 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 
@@ -14,6 +15,10 @@ public sealed class BattleSquadStatusView : MonoBehaviour
     [SerializeField] private ProgressBarView actionPointsBar;
     [SerializeField] private ProgressBarView moraleBar;
     [SerializeField] private StatRowView warriorCountRow;
+    [SerializeField] private CanvasGroup contentCanvasGroup;
+
+    private Coroutine contentFadeRoutine;
+    private string displayedSquadId;
 
     public int RenderCount { get; private set; }
     public int EmptyStateCount { get; private set; }
@@ -34,7 +39,8 @@ public sealed class BattleSquadStatusView : MonoBehaviour
         ProgressBarView configuredHealthBar,
         ProgressBarView configuredActionPointsBar,
         ProgressBarView configuredMoraleBar,
-        StatRowView configuredWarriorCountRow)
+        StatRowView configuredWarriorCountRow,
+        CanvasGroup configuredContentCanvasGroup = null)
     {
         theme = configuredTheme;
         contentRoot = configuredContentRoot;
@@ -47,11 +53,14 @@ public sealed class BattleSquadStatusView : MonoBehaviour
         actionPointsBar = configuredActionPointsBar;
         moraleBar = configuredMoraleBar;
         warriorCountRow = configuredWarriorCountRow;
+        contentCanvasGroup = configuredContentCanvasGroup;
         ApplyTheme();
     }
 
     public void Render(BattleSquadStatusModel model)
     {
+        bool identityChanged = displayedSquadId != model.SquadId;
+        displayedSquadId = model.SquadId;
         CurrentModel = model;
         HasData = true;
         RenderCount++;
@@ -83,11 +92,14 @@ public sealed class BattleSquadStatusView : MonoBehaviour
             UIStatFormatter.FormatCurrentMaximum(
                 model.LivingWarriors,
                 model.MaximumWarriors));
+        if (identityChanged)
+            PlayContentFade();
     }
 
     public void ShowEmpty(string reason = null)
     {
         HasData = false;
+        displayedSquadId = null;
         CurrentModel = default;
         EmptyStateCount++;
         if (contentRoot != null)
@@ -117,12 +129,49 @@ public sealed class BattleSquadStatusView : MonoBehaviour
             squadLabel.font = theme.AccentFont;
             squadLabel.fontSize = theme.HeadingSize;
             squadLabel.color = theme.Gold;
+            squadLabel.overflowMode = TextOverflowModes.Ellipsis;
+            squadLabel.textWrappingMode = TextWrappingModes.NoWrap;
         }
         if (commanderLabel != null)
         {
             commanderLabel.font = theme.PrimaryFont;
             commanderLabel.fontSize = theme.BodySize;
             commanderLabel.color = theme.TextPrimary;
+            commanderLabel.overflowMode = TextOverflowModes.Ellipsis;
+            commanderLabel.textWrappingMode = TextWrappingModes.NoWrap;
         }
+    }
+
+    private void PlayContentFade()
+    {
+        if (contentCanvasGroup == null || !Application.isPlaying)
+            return;
+        if (contentFadeRoutine != null)
+            StopCoroutine(contentFadeRoutine);
+        contentFadeRoutine = StartCoroutine(FadeContent());
+    }
+
+    private IEnumerator FadeContent()
+    {
+        const float duration = 0.12f;
+        contentCanvasGroup.alpha = 0.62f;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            contentCanvasGroup.alpha = Mathf.Lerp(0.62f, 1f, Mathf.Clamp01(elapsed / duration));
+            yield return null;
+        }
+        contentCanvasGroup.alpha = 1f;
+        contentFadeRoutine = null;
+    }
+
+    private void OnDisable()
+    {
+        if (contentFadeRoutine != null)
+            StopCoroutine(contentFadeRoutine);
+        contentFadeRoutine = null;
+        if (contentCanvasGroup != null)
+            contentCanvasGroup.alpha = 1f;
     }
 }

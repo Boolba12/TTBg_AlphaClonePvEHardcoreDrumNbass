@@ -80,7 +80,9 @@ public readonly struct InitiativeEntryModel
     public Sprite Portrait { get; }
     public float Initiative { get; }
     public BattleSide Side { get; }
+    public SquadControlType ControlType { get; }
     public bool IsSelected { get; }
+    public bool IsActive { get; }
     public bool IsDefeated { get; }
 
     public InitiativeEntryModel(
@@ -89,13 +91,17 @@ public readonly struct InitiativeEntryModel
         float initiative,
         BattleSide side,
         bool isSelected,
-        bool isDefeated = false)
+        bool isDefeated = false,
+        SquadControlType controlType = SquadControlType.AI,
+        bool isActive = false)
     {
         SquadId = squadId ?? string.Empty;
         Portrait = portrait;
         Initiative = initiative;
         Side = side;
+        ControlType = controlType;
         IsSelected = isSelected;
+        IsActive = isActive;
         IsDefeated = isDefeated;
     }
 }

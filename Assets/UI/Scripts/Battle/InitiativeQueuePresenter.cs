@@ -10,6 +10,7 @@ public sealed class InitiativeQueuePresenter : MonoBehaviour
         new List<SquadBattleController>();
     private SquadInitiativeOrder order;
     private string selectedSquadId;
+    private string activeSquadId;
 
     public bool IsBound => order != null;
 
@@ -22,11 +23,15 @@ public sealed class InitiativeQueuePresenter : MonoBehaviour
         portraitDatabase = configuredPortraitDatabase;
     }
 
-    public void Bind(SquadInitiativeOrder initiativeOrder, string selectedId)
+    public void Bind(
+        SquadInitiativeOrder initiativeOrder,
+        string selectedId,
+        string activeId = null)
     {
         Unbind();
         order = initiativeOrder;
         selectedSquadId = selectedId;
+        activeSquadId = activeId;
         if (order == null)
         {
             view?.ShowEmpty();
@@ -56,6 +61,7 @@ public sealed class InitiativeQueuePresenter : MonoBehaviour
         subscribedControllers.Clear();
         order = null;
         selectedSquadId = null;
+        activeSquadId = null;
     }
 
     public void ShowEmpty()
@@ -67,7 +73,8 @@ public sealed class InitiativeQueuePresenter : MonoBehaviour
     public static List<InitiativeEntryModel> BuildModels(
         SquadInitiativeOrder initiativeOrder,
         CommanderPortraitDatabase database,
-        string selectedId)
+        string selectedId,
+        string activeId = null)
     {
         List<InitiativeEntryModel> models = new List<InitiativeEntryModel>();
         if (initiativeOrder == null)
@@ -88,7 +95,9 @@ public sealed class InitiativeQueuePresenter : MonoBehaviour
                 controller.Runtime.Stats.Initiative,
                 controller.Side,
                 controller.SquadId == selectedId,
-                controller.Runtime.State.IsDefeated));
+                controller.Runtime.State.IsDefeated,
+                controller.ControlType,
+                controller.SquadId == activeId));
         }
         return models;
     }
@@ -100,7 +109,23 @@ public sealed class InitiativeQueuePresenter : MonoBehaviour
 
     private void Refresh()
     {
-        view?.SetEntries(BuildModels(order, portraitDatabase, selectedSquadId));
+        view?.SetEntries(BuildModels(order, portraitDatabase, selectedSquadId, activeSquadId));
+    }
+
+    public void SetSelectedSquad(string squadId)
+    {
+        if (selectedSquadId == squadId)
+            return;
+        selectedSquadId = squadId;
+        Refresh();
+    }
+
+    public void SetActiveSquad(string squadId)
+    {
+        if (activeSquadId == squadId)
+            return;
+        activeSquadId = squadId;
+        Refresh();
     }
 
     private void HandleStatsChanged(SquadCalculatedStats value) => Refresh();

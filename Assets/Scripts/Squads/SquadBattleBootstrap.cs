@@ -16,6 +16,12 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
     [SerializeField] private Transform squadContainer;
     [SerializeField] private SquadSaveParticipant squadRepository;
 
+    [Header("Participant presentation")]
+    [Tooltip("Explicit presentation for the player participant slot; not inferred from side or object name.")]
+    [SerializeField] private SquadFormationPresentation playerFormationPresentation;
+    [Tooltip("Explicit presentation for the enemy participant slot; not inferred from side or object name.")]
+    [SerializeField] private SquadFormationPresentation enemyFormationPresentation;
+
     [Header("Saved-roster mapping (optional)")]
     [Tooltip("When empty, the first valid saved squad is used for the player.")]
     [SerializeField] private string savedPlayerSquadId;
@@ -90,7 +96,8 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
                 playerSource,
                 playerCell,
                 mapGenerator,
-                mapRenderer) ||
+                mapRenderer,
+                playerFormationPresentation) ||
             !SpawnSquad(
                 BattleSide.Enemy,
                 SquadControlType.AI,
@@ -98,9 +105,16 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
                 enemySource,
                 enemyCell,
                 mapGenerator,
-                mapRenderer))
+                mapRenderer,
+                enemyFormationPresentation))
         {
             return Fail("one or more squad representations could not be created");
+        }
+
+        if (squadRepository != null && squadRepository.GetSquad(playerSquad.Id) == null &&
+            !squadRepository.TryAddSquad(playerSquad, out string repositoryError))
+        {
+            return Fail($"Player squad could not be registered for persistence: {repositoryError}");
         }
 
         State = SquadBootstrapState.Initialized;
@@ -159,7 +173,9 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         bool developmentFallbackEnabled,
         SquadData playerFallback,
         SquadData enemyFallback,
-        bool developmentLogsEnabled = true)
+        bool developmentLogsEnabled = true,
+        SquadFormationPresentation playerPresentation = null,
+        SquadFormationPresentation enemyPresentation = null)
     {
         squadBattlePrefab = prefab;
         squadContainer = container;
@@ -168,6 +184,8 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         developmentPlayerSquad = playerFallback;
         developmentEnemySquad = enemyFallback;
         enableDevelopmentLogs = developmentLogsEnabled;
+        playerFormationPresentation = playerPresentation;
+        enemyFormationPresentation = enemyPresentation;
     }
 
     private bool SpawnSquad(
@@ -177,7 +195,8 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         string source,
         Vector2Int cell,
         MapGenerator mapGenerator,
-        MapRenderer mapRenderer)
+        MapRenderer mapRenderer,
+        SquadFormationPresentation presentation)
     {
         SquadValidationResult validation = data?.Validate();
         if (validation == null || !validation.IsValid)
@@ -200,7 +219,8 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
                 cell,
                 side,
                 controlType,
-                registrationSequence))
+                registrationSequence,
+                presentation))
         {
             controller.gameObject.SetActive(false);
             DestroyObject(controller.gameObject);
@@ -250,6 +270,12 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
             enemySquad = FirstValid(
                 BattleSquadSelectionContext.EnemySquads,
                 playerSquad?.Id);
+            if (playerSquad != null && enemySquad == null && enableDevelopmentFallback &&
+                IsValidDistinct(developmentEnemySquad, playerSquad.Id))
+            {
+                enemySquad = developmentEnemySquad;
+                enemySource = "Inspector development enemy fallback";
+            }
             if (playerSquad == null || enemySquad == null)
             {
                 error =
@@ -258,7 +284,7 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
             }
 
             playerSource = "BattleSquadSelectionContext";
-            enemySource = "BattleSquadSelectionContext";
+            enemySource ??= "BattleSquadSelectionContext";
             consumeSelection = true;
             return true;
         }
@@ -360,6 +386,7 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         SquadValidationResult validation = squad?.Validate();
         return validation != null &&
                validation.IsValid &&
+               squad.IsBattleEligible &&
                squad.Id != excludedId;
     }
 

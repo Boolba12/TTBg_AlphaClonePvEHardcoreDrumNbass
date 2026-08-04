@@ -118,7 +118,7 @@ public sealed class BattleUIVisualPassTests
     }
 
     [Test]
-    public void CompactHudFootprintIsAboutTwentyFivePercentBelowDocumentedBaseline()
+    public void CompactHudFootprintRemainsBelowDocumentedBaselineWithoutGlobalScaling()
     {
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(HudPath);
         Transform layer = prefab.transform.Find("HUDLayer");
@@ -129,10 +129,41 @@ public sealed class BattleUIVisualPassTests
         const float documentedFirstPhaseArea = 0.5431f;
         float reduction = 1f - newArea / documentedFirstPhaseArea;
 
-        Assert.That(newArea, Is.EqualTo(0.4011f).Within(0.005f));
-        Assert.That(reduction, Is.InRange(0.20f, 0.30f));
+        Assert.That(newArea, Is.EqualTo(0.3880f).Within(0.005f));
+        Assert.That(reduction, Is.InRange(0.27f, 0.31f));
         Assert.That(prefab.transform.localScale, Is.EqualTo(Vector3.one));
         Assert.That(layer.localScale, Is.EqualTo(Vector3.one));
+    }
+
+    [Test]
+    public void StatusPanelIsTenPercentSmallerRaisedAndAlignedWithMinimap()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(HudPath);
+        Transform layer = prefab.transform.Find("HUDLayer");
+        RectTransform status = layer.Find("SelectedSquadPanel") as RectTransform;
+        RectTransform minimap = layer.Find("TopRight_MinimapContainer") as RectTransform;
+        const float previousStatusArea = 0.27f * 0.47f;
+        float currentStatusArea = AnchorArea(status);
+        float reduction = 1f - currentStatusArea / previousStatusArea;
+
+        Assert.That(reduction, Is.InRange(0.09f, 0.12f));
+        Assert.That(status.anchorMax.y, Is.EqualTo(minimap.anchorMax.y).Within(0.001f));
+        Assert.That(status.anchorMin.y, Is.GreaterThan(0.18f));
+        Assert.That(status.localScale, Is.EqualTo(Vector3.one));
+        Assert.That(status.Find("Content").GetComponent<CanvasGroup>(), Is.Not.Null);
+    }
+
+    [Test]
+    public void InitiativePrefabHasSeparateActiveAndSelectedVisualsAndControlLabel()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/UI/Prefabs/Components/InitiativeEntry.prefab");
+        Assert.That(prefab.transform.Find("ActiveIndicator")?.GetComponent<Image>(),
+            Is.Not.Null);
+        Assert.That(prefab.transform.Find("SelectedHighlight")
+            ?.GetComponent<SelectionHighlightView>(), Is.Not.Null);
+        Assert.That(prefab.transform.Find("ControlType")
+            ?.GetComponent<TMPro.TMP_Text>(), Is.Not.Null);
     }
 
     [Test]
@@ -157,7 +188,11 @@ public sealed class BattleUIVisualPassTests
                 .Count(image => image.gameObject.name == "VerticalSeparator"),
             Is.EqualTo(3));
         Assert.That(bottom.GetComponentsInChildren<BattleActionControlView>(true).Length,
-            Is.EqualTo(6));
+            Is.EqualTo(7));
+        Assert.That(
+            bottom.GetComponentsInChildren<BattleActionControlView>(true)
+                .Count(action => action.gameObject.name == "EndTurn"),
+            Is.EqualTo(1));
         foreach (BattleActionControlView action in
                  bottom.GetComponentsInChildren<BattleActionControlView>(true))
         {
@@ -167,6 +202,23 @@ public sealed class BattleUIVisualPassTests
             Assert.That(action.GetComponent<TooltipAnchor>(), Is.Not.Null);
             Assert.That(action.GetComponent<LayoutElement>().minHeight, Is.GreaterThanOrEqualTo(48f));
         }
+
+        BattleActionControlView attack = bottom
+            .GetComponentsInChildren<BattleActionControlView>(true)
+            .Single(action => action.gameObject.name == "Attack");
+        Assert.That(attack.Button, Is.Not.Null);
+        Assert.That(attack.DisplayedIcon, Is.Not.Null);
+        AbilityDetailsPanelView abilityDetails =
+            hud.GetComponentInChildren<AbilityDetailsPanelView>(true);
+        Assert.That(abilityDetails, Is.Not.Null);
+        Image targetPortrait =
+            abilityDetails.transform.Find("TargetPortrait")?.GetComponent<Image>();
+        Assert.That(targetPortrait, Is.Not.Null);
+        Assert.That(targetPortrait.preserveAspect, Is.True);
+        Assert.That(targetPortrait.raycastTarget, Is.False);
+        SerializedObject abilitySerialized = new SerializedObject(abilityDetails);
+        Assert.That(abilitySerialized.FindProperty("icon").objectReferenceValue,
+            Is.SameAs(targetPortrait));
     }
 
     [Test]
@@ -175,7 +227,7 @@ public sealed class BattleUIVisualPassTests
         ItemPresentationCatalog catalog =
             AssetDatabase.LoadAssetAtPath<ItemPresentationCatalog>(CatalogPath);
         Assert.That(catalog, Is.Not.Null);
-        Assert.That(catalog.Entries.Count, Is.GreaterThanOrEqualTo(1));
+        Assert.That(catalog.Entries.Count, Is.EqualTo(13));
         Assert.That(catalog.Entries.Select(entry => entry.StableId).Distinct().Count(),
             Is.EqualTo(catalog.Entries.Count));
 
@@ -193,6 +245,14 @@ public sealed class BattleUIVisualPassTests
             Is.EqualTo(0));
         foreach (Renderer renderer in record.ModelPrefab.GetComponentsInChildren<Renderer>(true))
             Assert.That(renderer.sharedMaterials.All(material => material != null), Is.True);
+
+        ItemPresentationRecord[] auditedWeapons = catalog.Entries
+            .Where(entry => entry.Category == ItemPresentationCategory.Weapon)
+            .ToArray();
+        Assert.That(auditedWeapons.Length, Is.EqualTo(12));
+        Assert.That(auditedWeapons.All(entry => !entry.IsPlaceholder), Is.True);
+        Assert.That(auditedWeapons.All(entry => entry.PreviewSprite != null), Is.True);
+        Assert.That(auditedWeapons.All(entry => entry.ModelPrefab != null), Is.True);
     }
 
     [TestCase("Assets/Prefabs/1_voxtree.fbx", "Assets/Prefabs/1_voxtree.png")]

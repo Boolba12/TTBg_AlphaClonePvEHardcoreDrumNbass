@@ -16,6 +16,8 @@ public sealed class SquadBattleController : MonoBehaviour
 {
     [SerializeField] private SquadGridAnchor gridAnchor;
     [SerializeField] private SquadFormationView formationView;
+    [SerializeField] private SquadSelectionTarget selectionTarget;
+    [SerializeField] private SquadAttackTarget attackTarget;
 
     private bool battleContextAssigned;
     private int registrationSequence = -1;
@@ -26,6 +28,8 @@ public sealed class SquadBattleController : MonoBehaviour
     public bool CanAct => Runtime != null && Runtime.CanAct;
     public SquadGridAnchor GridAnchor => gridAnchor;
     public SquadFormationView FormationView => formationView;
+    public SquadSelectionTarget SelectionTarget => selectionTarget;
+    public SquadAttackTarget AttackTarget => attackTarget;
     public bool HasBattleContext => battleContextAssigned;
     public BattleSide Side { get; private set; }
     public SquadControlType ControlType { get; private set; }
@@ -44,7 +48,8 @@ public sealed class SquadBattleController : MonoBehaviour
         Vector2Int cell,
         BattleSide side,
         SquadControlType controlType,
-        int sequence)
+        int sequence,
+        SquadFormationPresentation presentation = null)
     {
         if (!AssignBattleContext(side, controlType, sequence))
             return false;
@@ -58,7 +63,7 @@ public sealed class SquadBattleController : MonoBehaviour
         if (!gridAnchor.PlaceAtCell(mapGenerator, mapRenderer, cell))
             return false;
 
-        return InitializeInternal(data, restoredState);
+        return InitializeInternal(data, restoredState, presentation);
     }
 
     public bool AssignBattleContext(
@@ -81,13 +86,22 @@ public sealed class SquadBattleController : MonoBehaviour
         return true;
     }
 
-    public void Configure(SquadGridAnchor anchor, SquadFormationView view)
+    public void Configure(
+        SquadGridAnchor anchor,
+        SquadFormationView view,
+        SquadSelectionTarget target = null,
+        SquadAttackTarget configuredAttackTarget = null)
     {
         gridAnchor = anchor;
         formationView = view;
+        selectionTarget = target;
+        attackTarget = configuredAttackTarget;
     }
 
-    private bool InitializeInternal(SquadData data, SquadBattleState restoredState)
+    private bool InitializeInternal(
+        SquadData data,
+        SquadBattleState restoredState,
+        SquadFormationPresentation presentation = null)
     {
         if (Runtime != null)
         {
@@ -107,7 +121,7 @@ public sealed class SquadBattleController : MonoBehaviour
         if (gridAnchor != null)
             gridAnchor.CellChanged += HandleCellChanged;
 
-        if (formationView != null && !formationView.Bind(Runtime))
+        if (formationView != null && !formationView.Bind(Runtime, presentation))
         {
             Unsubscribe();
             Runtime = null;
@@ -116,6 +130,13 @@ public sealed class SquadBattleController : MonoBehaviour
 
         if (gridAnchor != null && gridAnchor.IsPlaced)
             HandleCellChanged(gridAnchor.CurrentCell);
+
+        if (selectionTarget == null)
+            selectionTarget = GetComponent<SquadSelectionTarget>();
+        selectionTarget?.Bind(this);
+        if (attackTarget == null)
+            attackTarget = GetComponent<SquadAttackTarget>();
+        attackTarget?.Bind(this);
 
         Runtime.NotifyCreated();
         return true;

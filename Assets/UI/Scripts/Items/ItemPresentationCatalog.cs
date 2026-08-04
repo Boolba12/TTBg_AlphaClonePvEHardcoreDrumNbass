@@ -9,7 +9,8 @@ public enum ItemPresentationCategory
     Armor,
     Accessory,
     Material,
-    UnknownTest
+    UnknownTest,
+    Weapon
 }
 
 [Serializable]

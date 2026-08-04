@@ -110,6 +110,8 @@ public sealed class BattleSquadStatusPresenter : MonoBehaviour
         return sprite != null ? sprite : portraitDatabase?.FallbackPortrait;
     }
 
+    public Sprite GetDisplayPortrait(string portraitId) => ResolvePortrait(portraitId);
+
     private void HandleStatsChanged(SquadCalculatedStats value) => Refresh();
     private void HandleCompositionChanged() => Refresh();
     private void HandleHealthChanged(int value) => Refresh();

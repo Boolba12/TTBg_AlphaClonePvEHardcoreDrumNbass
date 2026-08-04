@@ -7,6 +7,7 @@ public sealed class SquadSavePayload
 {
     public List<SquadData> squads = new List<SquadData>();
     public List<SquadBattleState> activeBattles = new List<SquadBattleState>();
+    public List<string> appliedBattleIds = new List<string>();
 }
 
 public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
@@ -19,10 +20,19 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
         new Dictionary<string, SquadBattleRuntime>();
     private readonly Dictionary<string, SquadBattleState> restoredBattles =
         new Dictionary<string, SquadBattleState>();
+    private readonly HashSet<string> appliedBattleIds =
+        new HashSet<string>(StringComparer.Ordinal);
 
     public string SaveKey => "squads";
     public IReadOnlyList<SquadData> Squads => squads;
     public int ActiveRuntimeCount => activeRuntimes.Count;
+    public bool HasAppliedBattle(string battleId) =>
+        !string.IsNullOrWhiteSpace(battleId) && appliedBattleIds.Contains(battleId);
+
+    public bool MarkBattleApplied(string battleId)
+    {
+        return !string.IsNullOrWhiteSpace(battleId) && appliedBattleIds.Add(battleId);
+    }
 
     public void SetActiveBattleStateSaving(bool enabled)
     {
@@ -76,7 +86,8 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
     {
         SquadSavePayload payload = new SquadSavePayload
         {
-            squads = new List<SquadData>(squads)
+            squads = new List<SquadData>(squads),
+            appliedBattleIds = new List<string>(appliedBattleIds)
         };
 
         if (saveActiveBattleState)
@@ -116,6 +127,15 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
 
         activeRuntimes.Clear();
         restoredBattles.Clear();
+        appliedBattleIds.Clear();
+        if (payload?.appliedBattleIds != null)
+        {
+            foreach (string battleId in payload.appliedBattleIds)
+            {
+                if (!string.IsNullOrWhiteSpace(battleId))
+                    appliedBattleIds.Add(battleId);
+            }
+        }
         if (payload?.activeBattles == null)
             return;
 

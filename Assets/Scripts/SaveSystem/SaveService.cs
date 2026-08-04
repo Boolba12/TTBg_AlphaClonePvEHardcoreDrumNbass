@@ -49,8 +49,20 @@ public sealed class SaveService
     public bool HasSave(string slotId) => storage.Exists(slotId);
     public SaveOperationResult Delete(string slotId) => storage.Delete(slotId);
     public SaveOperationResult Autosave(GameSaveData data) => Save("autosave", data);
+    public SaveOperationResult Autosave(
+        GameSaveData data,
+        ISet<string> excludedSaveKeys) =>
+        Save("autosave", data, excludedSaveKeys);
 
     public SaveOperationResult Save(string slotId, GameSaveData data)
+    {
+        return Save(slotId, data, null);
+    }
+
+    public SaveOperationResult Save(
+        string slotId,
+        GameSaveData data,
+        ISet<string> excludedSaveKeys)
     {
         if (operationInProgress)
             return SaveOperationResult.Fail("Another save operation is already running.");
@@ -66,6 +78,8 @@ public sealed class SaveService
 
             foreach (ISaveable saveable in saveables.Values)
             {
+                if (excludedSaveKeys != null && excludedSaveKeys.Contains(saveable.SaveKey))
+                    continue;
                 if (saveable is ICoreSaveDataContributor contributor)
                     contributor.CaptureCoreData(data);
 

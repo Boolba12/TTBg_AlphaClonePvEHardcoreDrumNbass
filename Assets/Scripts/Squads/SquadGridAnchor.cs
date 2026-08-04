@@ -46,4 +46,34 @@ public sealed class SquadGridAnchor : MonoBehaviour
         return mapGenerator != null && mapRenderer != null &&
                PlaceAtCell(mapGenerator, mapRenderer, cell);
     }
+
+    public Vector3 GetWorldPosition(Vector2Int cell)
+    {
+        return mapRenderer != null
+            ? mapRenderer.GetCellWorldCenter(cell) + Vector3.up * worldHeightOffset
+            : transform.position;
+    }
+
+    public bool CanCommitCell(Vector2Int cell)
+    {
+        return mapGenerator != null && mapRenderer != null &&
+               mapGenerator.HasGeneratedData &&
+               mapGenerator.GetIsPlayable(cell.x, cell.y);
+    }
+
+    /// <summary>
+    /// Commits logical state after SquadMovementService has animated the root to the cell.
+    /// Production movement must not call TryMoveToCell because that method teleports immediately.
+    /// </summary>
+    public bool CommitVisualArrival(Vector2Int cell)
+    {
+        if (!CanCommitCell(cell))
+            return false;
+
+        CurrentCell = cell;
+        IsPlaced = true;
+        transform.position = GetWorldPosition(cell);
+        CellChanged?.Invoke(cell);
+        return true;
+    }
 }

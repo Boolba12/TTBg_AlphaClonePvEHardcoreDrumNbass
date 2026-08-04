@@ -147,63 +147,13 @@ public abstract class UnitController : MonoBehaviour
 
     protected bool TryBuildPath(Vector2Int start, Vector2Int target, out List<Vector2Int> path)
     {
-        path = new List<Vector2Int>();
-
-        if (mapGenerator == null)
-            return false;
-
-        if (start == target)
-        {
-            path.Add(start);
-            return true;
-        }
-
-        Queue<Vector2Int> queue = new Queue<Vector2Int>();
-        Dictionary<Vector2Int, Vector2Int> cameFrom = new Dictionary<Vector2Int, Vector2Int>();
-        HashSet<Vector2Int> visited = new HashSet<Vector2Int>();
-
-        queue.Enqueue(start);
-        visited.Add(start);
-
-        bool found = false;
-        Vector2Int[] directions = GetPathDirections();
-        while (queue.Count > 0)
-        {
-            Vector2Int current = queue.Dequeue();
-            if (current == target)
-            {
-                found = true;
-                break;
-            }
-
-            foreach (var dir in directions)
-            {
-                Vector2Int next = current + dir;
-                if (visited.Contains(next))
-                    continue;
-
-                if (!mapGenerator.GetIsPlayable(next.x, next.y))
-                    continue;
-
-                visited.Add(next);
-                cameFrom[next] = current;
-                queue.Enqueue(next);
-            }
-        }
-
-        if (!found)
-            return false;
-
-        Vector2Int step = target;
-        path.Add(step);
-        while (step != start)
-        {
-            step = cameFrom[step];
-            path.Add(step);
-        }
-
-        path.Reverse();
-        return true;
+        return GridPathfinder.TryBuildPath(
+            mapGenerator,
+            start,
+            target,
+            allowDiagonalMovement,
+            null,
+            out path);
     }
 
     protected Vector2Int[] GetPathDirections()

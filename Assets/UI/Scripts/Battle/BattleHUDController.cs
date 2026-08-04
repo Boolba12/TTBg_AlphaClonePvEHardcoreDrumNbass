@@ -9,11 +9,17 @@ public sealed class BattleHUDController : MonoBehaviour
     [SerializeField] private BattleActionBarView actionBar;
     [SerializeField] private AbilityDetailsPanelView abilityDetails;
     [SerializeField] private GameObject hudContentRoot;
+    [Header("Runtime state sources")]
+    [SerializeField] private BattleSquadSelectionController selectionController;
+    [SerializeField] private BattleTurnController turnController;
 
     private Coroutine bindingRoutine;
+    private bool runtimeListenersBound;
 
     public bool HasBoundPlayer { get; private set; }
     public SquadBattleController BoundPlayerController { get; private set; }
+    public SquadBattleController DisplayedController => squadStatusPresenter?.BoundController;
+    public AbilityDetailsPanelView AbilityDetails => abilityDetails;
     public int SuccessfulBindingCount { get; private set; }
 
     public void Configure(
@@ -32,10 +38,22 @@ public sealed class BattleHUDController : MonoBehaviour
         hudContentRoot = contentRoot;
     }
 
+    public void ConfigureRuntimeState(
+        BattleSquadSelectionController selection,
+        BattleTurnController turns)
+    {
+        UnbindRuntimeStateListeners();
+        selectionController = selection;
+        turnController = turns;
+        if (isActiveAndEnabled)
+            BindRuntimeStateListeners();
+    }
+
     private void OnEnable()
     {
         actionBar?.SetActionsAvailable(false);
         abilityDetails?.ShowUnavailable();
+        BindRuntimeStateListeners();
         bindingRoutine = StartCoroutine(BindWhenBootstrapCompletes());
     }
 
@@ -46,6 +64,7 @@ public sealed class BattleHUDController : MonoBehaviour
         bindingRoutine = null;
         squadStatusPresenter?.Unbind();
         initiativePresenter?.Unbind();
+        UnbindRuntimeStateListeners();
         BoundPlayerController = null;
         HasBoundPlayer = false;
     }
@@ -75,13 +94,18 @@ public sealed class BattleHUDController : MonoBehaviour
             return false;
         }
 
-        if (squadStatusPresenter == null || !squadStatusPresenter.Bind(player))
+        SquadBattleController displayTarget = ResolveDisplayTarget(player);
+        if (squadStatusPresenter == null || displayTarget == null ||
+            !squadStatusPresenter.Bind(displayTarget))
         {
             ShowControlledEmptyState("Battle HUD could not bind the Player-side squad runtime.");
             return false;
         }
 
-        initiativePresenter?.Bind(squadBootstrap.InitiativeOrder, player.SquadId);
+        initiativePresenter?.Bind(
+            squadBootstrap.InitiativeOrder,
+            selectionController?.SelectedSquad?.SquadId,
+            turnController?.ActiveSquadId);
         BoundPlayerController = player;
         HasBoundPlayer = true;
         SuccessfulBindingCount++;
@@ -89,6 +113,56 @@ public sealed class BattleHUDController : MonoBehaviour
             hudContentRoot.SetActive(true);
         return true;
     }
+
+    private SquadBattleController ResolveDisplayTarget(SquadBattleController playerFallback = null)
+    {
+        SquadBattleController selected = selectionController?.SelectedSquad;
+        if (selected != null && selected.IsInitialized)
+            return selected;
+
+        SquadBattleController active = turnController?.ActiveSquad;
+        if (active != null && active.IsInitialized && active.ControlType == SquadControlType.Human)
+            return active;
+
+        return playerFallback ?? BoundPlayerController;
+    }
+
+    private void RefreshRuntimeState()
+    {
+        if (!HasBoundPlayer)
+            return;
+
+        SquadBattleController target = ResolveDisplayTarget();
+        if (target != null && squadStatusPresenter?.BoundController != target)
+            squadStatusPresenter?.Bind(target);
+        initiativePresenter?.SetSelectedSquad(selectionController?.SelectedSquad?.SquadId);
+        initiativePresenter?.SetActiveSquad(turnController?.ActiveSquadId);
+    }
+
+    private void BindRuntimeStateListeners()
+    {
+        if (runtimeListenersBound)
+            return;
+        if (selectionController != null)
+            selectionController.OnSelectedSquadChanged += HandleSelectedSquadChanged;
+        if (turnController != null)
+            turnController.OnActiveSquadChanged += HandleActiveSquadChanged;
+        runtimeListenersBound = true;
+    }
+
+    private void UnbindRuntimeStateListeners()
+    {
+        if (!runtimeListenersBound)
+            return;
+        if (selectionController != null)
+            selectionController.OnSelectedSquadChanged -= HandleSelectedSquadChanged;
+        if (turnController != null)
+            turnController.OnActiveSquadChanged -= HandleActiveSquadChanged;
+        runtimeListenersBound = false;
+    }
+
+    private void HandleSelectedSquadChanged(SquadBattleController controller) => RefreshRuntimeState();
+    private void HandleActiveSquadChanged(SquadBattleController controller) => RefreshRuntimeState();
 
     private IEnumerator BindWhenBootstrapCompletes()
     {
@@ -122,5 +196,37 @@ public sealed class BattleHUDController : MonoBehaviour
         squadStatusPresenter?.ShowEmpty(reason);
         initiativePresenter?.ShowEmpty();
         Debug.LogWarning($"BattleHUDController: {reason}", this);
+    }
+
+    public void ShowAttackPreview(
+        BattleAttackPreview preview,
+        SquadBattleController target,
+        AttackDefinition definition)
+    {
+        Sprite portrait = target?.Runtime?.Data != null
+            ? squadStatusPresenter?.GetDisplayPortrait(
+                target.Runtime.Data.CommanderPortraitId)
+            : null;
+        abilityDetails?.ShowAttackPreview(
+            preview,
+            target?.SquadId ?? "Unavailable target",
+            portrait,
+            definition);
+    }
+
+    public void ShowAttackResult(
+        BattleAttackResult result,
+        SquadBattleController target)
+    {
+        abilityDetails?.ShowAttackResult(result);
+    }
+
+    public void ClearAttackPreview() => abilityDetails?.ShowUnavailable();
+
+    public void SetBattleCommandsAvailable(bool available)
+    {
+        actionBar?.SetActionsAvailable(available);
+        if (!available)
+            abilityDetails?.ShowUnavailable();
     }
 }

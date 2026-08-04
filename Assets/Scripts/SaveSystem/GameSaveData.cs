@@ -20,6 +20,7 @@ public sealed class PlayerProgressData
     public bool hasOverworldPositions;
     public Int2Data playerCell = new Int2Data();
     public Int2Data enemyCell = new Int2Data();
+    public List<string> resolvedEncounterIds = new List<string>();
 }
 
 [Serializable]

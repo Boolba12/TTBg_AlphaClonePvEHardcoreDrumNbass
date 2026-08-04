@@ -2,6 +2,20 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum PersistentSquadStatus
+{
+    Active,
+    InactiveNoWarriors,
+    CommanderLost
+}
+
+[Serializable]
+public sealed class PersistentDebuffRecord
+{
+    public string debuffId;
+    public string sourceBattleId;
+}
+
 [Serializable]
 public sealed class SquadData : ICommanderPortraitTarget
 {
@@ -12,11 +26,15 @@ public sealed class SquadData : ICommanderPortraitTarget
     [SerializeField] private CommanderData commander;
     [SerializeField] private List<WarriorData> warriors = new List<WarriorData>();
     [SerializeField] private SquadStatModifiers permanentModifiers = new SquadStatModifiers();
+    [SerializeField] private PersistentSquadStatus status = PersistentSquadStatus.Active;
 
     public string Id => id;
     public CommanderData Commander => commander;
     public IReadOnlyList<WarriorData> Warriors => warriors;
     public SquadStatModifiers PermanentModifiers => permanentModifiers;
+    public PersistentSquadStatus Status => status;
+    public bool IsBattleEligible => status == PersistentSquadStatus.Active &&
+                                    warriors != null && warriors.Count >= MinimumWarriors;
 
     public string CommanderPortraitId
     {
@@ -38,6 +56,7 @@ public sealed class SquadData : ICommanderPortraitTarget
         this.commander = commander;
         this.warriors = warriors != null ? new List<WarriorData>(warriors) : new List<WarriorData>();
         this.permanentModifiers = permanentModifiers ?? new SquadStatModifiers();
+        status = PersistentSquadStatus.Active;
     }
 
     public bool TryAddWarrior(WarriorData warrior, bool battleActive, out string error)
@@ -105,8 +124,10 @@ public sealed class SquadData : ICommanderPortraitTarget
         else
             commander.Validate(errors);
 
-        if (warriors == null || warriors.Count < MinimumWarriors)
-            errors.Add("At least one warrior is required.");
+        if (warriors == null)
+            errors.Add("Warrior collection is missing.");
+        else if (status == PersistentSquadStatus.Active && warriors.Count < MinimumWarriors)
+            errors.Add("An active squad requires at least one warrior.");
         else if (warriors.Count > MaximumWarriors)
             errors.Add($"No more than {MaximumWarriors} warriors are allowed.");
 
@@ -133,6 +154,56 @@ public sealed class SquadData : ICommanderPortraitTarget
         return new SquadValidationResult(errors);
     }
 
+    internal bool ApplyPostBattleState(
+        ISet<string> survivingWarriorIds,
+        PersistentSquadStatus newStatus,
+        PersistentDebuffDefinition debuff,
+        string sourceBattleId,
+        out string error)
+    {
+        if (survivingWarriorIds == null)
+        {
+            error = "Surviving Warrior IDs are missing.";
+            return false;
+        }
+
+        HashSet<string> known = new HashSet<string>();
+        foreach (WarriorData warrior in warriors)
+        {
+            if (warrior != null)
+                known.Add(warrior.id);
+        }
+        foreach (string survivorId in survivingWarriorIds)
+        {
+            if (!known.Contains(survivorId))
+            {
+                error = $"Unknown surviving Warrior ID '{survivorId}'.";
+                return false;
+            }
+        }
+
+        warriors.RemoveAll(warrior =>
+            warrior == null || !survivingWarriorIds.Contains(warrior.id));
+        status = newStatus;
+        permanentModifiers ??= new SquadStatModifiers();
+        commander.permanentDebuffIds ??= new List<string>();
+        commander.permanentDebuffs ??= new List<PersistentDebuffRecord>();
+        if (debuff != null && !commander.permanentDebuffIds.Contains(debuff.StableId))
+        {
+            commander.permanentDebuffIds.Add(debuff.StableId);
+            commander.permanentDebuffs.Add(new PersistentDebuffRecord
+            {
+                debuffId = debuff.StableId,
+                sourceBattleId = sourceBattleId ?? string.Empty
+            });
+            if (debuff.ResolveModifier != 0f)
+                permanentModifiers.resolve += debuff.ResolveModifier;
+        }
+
+        error = null;
+        return true;
+    }
+
     private bool ContainsMemberId(string memberId)
     {
         if (string.IsNullOrWhiteSpace(memberId))
@@ -151,6 +222,8 @@ public sealed class CommanderData
     public string commanderPortraitId;
     public SquadBaseStats baseStats = new SquadBaseStats();
     public List<string> permanentDebuffIds = new List<string>();
+    public List<PersistentDebuffRecord> permanentDebuffs =
+        new List<PersistentDebuffRecord>();
 
     public string CommanderPortraitId
     {
@@ -167,6 +240,7 @@ public sealed class CommanderData
         else
             baseStats.Validate("Commander", errors);
         permanentDebuffIds ??= new List<string>();
+        permanentDebuffs ??= new List<PersistentDebuffRecord>();
     }
 }
 

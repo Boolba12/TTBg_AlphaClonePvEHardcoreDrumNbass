@@ -729,6 +729,16 @@ public static class BattleUIInstaller
         Stretch(initiative.rectTransform, new Vector2(0.84f, 0.1f), new Vector2(0.98f, 0.9f),
             Vector2.zero, Vector2.zero);
 
+        GameObject activeObject = NewUIObject("ActiveIndicator", root.transform);
+        Image activeIndicator = activeObject.AddComponent<Image>();
+        activeIndicator.raycastTarget = false;
+        Stretch(activeObject.GetComponent<RectTransform>(), new Vector2(0.405f, 0.16f),
+            new Vector2(0.425f, 0.84f), Vector2.zero, Vector2.zero);
+        TMP_Text controlLabel = CreateText(
+            "ControlType", root.transform, theme, "HUMAN", TextAlignmentOptions.MidlineLeft);
+        Stretch(controlLabel.rectTransform, new Vector2(0.43f, 0.08f),
+            new Vector2(0.82f, 0.40f), Vector2.zero, Vector2.zero);
+
         GameObject highlightObject = NewUIObject("SelectedHighlight", root.transform);
         Stretch(highlightObject.GetComponent<RectTransform>(), Vector2.zero, Vector2.one,
             Vector2.zero, Vector2.zero);
@@ -741,6 +751,7 @@ public static class BattleUIInstaller
 
         InitiativeEntryView view = root.AddComponent<InitiativeEntryView>();
         view.Configure(theme, background, sideAccent, portrait, squad, initiative, highlight);
+        view.ConfigureStateVisuals(activeIndicator, controlLabel);
         return root;
     }
 
@@ -862,12 +873,13 @@ public static class BattleUIInstaller
         CommanderPortraitDatabase portraitDatabase)
     {
         GameObject panel = NewUIObject("SelectedSquadPanel", parent);
-        Stretch(panel.GetComponent<RectTransform>(), new Vector2(0f, 0.31f),
-            new Vector2(0.27f, 0.78f), Vector2.zero, Vector2.zero);
+        Stretch(panel.GetComponent<RectTransform>(), new Vector2(0f, 0.535f),
+            new Vector2(0.25f, 0.99f), Vector2.zero, Vector2.zero);
         AddPanelFrame(panel, theme);
         CreateSectionHeader(panel.transform, theme, theme.SquadLabel);
 
         GameObject content = NewUIObject("Content", panel.transform);
+        CanvasGroup contentCanvasGroup = content.AddComponent<CanvasGroup>();
         Stretch(content.GetComponent<RectTransform>(), new Vector2(0.045f, 0.045f),
             new Vector2(0.955f, 0.78f), Vector2.zero, Vector2.zero);
         GameObject empty = NewUIObject("EmptyState", panel.transform);
@@ -936,7 +948,8 @@ public static class BattleUIInstaller
             health,
             actionPoints,
             morale,
-            warriors);
+            warriors,
+            contentCanvasGroup);
         BattleSquadStatusPresenter presenter = panel.AddComponent<BattleSquadStatusPresenter>();
         presenter.Configure(view, portraitDatabase);
         return presenter;
@@ -965,7 +978,7 @@ public static class BattleUIInstaller
 
         List<Button> buttons = new List<Button>();
         CreateActionSection(sections.transform, theme, "BasicActions", "Basic Actions",
-            new[] { "Move", "Attack" }, 1f, buttons);
+            new[] { "Move", "Attack", "End Turn" }, 1.25f, buttons);
         CreateVerticalSeparator(sections.transform, theme);
         CreateActionSection(sections.transform, theme, "CommanderPerks", "Commander Perks",
             new[] { "Perk I", "Perk II" }, 0.85f, buttons);

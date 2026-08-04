@@ -11,6 +11,20 @@ public sealed class OverworldSaveParticipant : MonoBehaviour, ISaveable, ICoreSa
 
     public string SaveKey => "overworld";
 
+    public void Configure(
+        MapGenerator generator,
+        MapRenderer renderer,
+        MapRockPlacer rockPlacer,
+        PlayerController player,
+        EnemyController enemy)
+    {
+        mapGenerator = generator;
+        mapRenderer = renderer;
+        mapRockPlacer = rockPlacer;
+        playerController = player;
+        enemyController = enemy;
+    }
+
     public string CaptureState()
     {
         OverworldState state = new OverworldState
@@ -39,14 +53,20 @@ public sealed class OverworldSaveParticipant : MonoBehaviour, ISaveable, ICoreSa
             data.playerProgress.playerCell = ToData(playerController.CurrentCell);
         if (enemyController != null)
             data.playerProgress.enemyCell = ToData(enemyController.CurrentCell);
+        data.playerProgress.resolvedEncounterIds =
+            new System.Collections.Generic.List<string>(
+                ResolvedEncounterRegistry.EncounterIds);
     }
 
     public void RestoreCoreData(GameSaveData data)
     {
         PlayerProgressData progress = data.playerProgress;
-        if (progress == null || !progress.hasOverworldPositions)
+        if (progress == null)
             return;
 
+        ResolvedEncounterRegistry.Restore(progress.resolvedEncounterIds);
+        if (!progress.hasOverworldPositions)
+            return;
         Restore(progress.mapSeed, progress.playerCell, progress.enemyCell);
     }
 

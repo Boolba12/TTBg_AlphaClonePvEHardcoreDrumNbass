@@ -11,10 +11,14 @@ public sealed class InitiativeEntryView : MonoBehaviour
     [SerializeField] private TMP_Text squadIdLabel;
     [SerializeField] private TMP_Text initiativeLabel;
     [SerializeField] private SelectionHighlightView selectionHighlight;
+    [SerializeField] private Image activeIndicator;
+    [SerializeField] private TMP_Text controlLabel;
 
     public string DisplayedSquadId { get; private set; }
     public Sprite DisplayedPortrait => portrait != null ? portrait.sprite : null;
     public bool DisplaysDefeatedState { get; private set; }
+    public bool DisplaysActiveState { get; private set; }
+    public bool DisplaysSelectedState => selectionHighlight != null && selectionHighlight.IsHighlighted;
 
     public void Configure(
         PurgatoryUITheme configuredTheme,
@@ -35,10 +39,18 @@ public sealed class InitiativeEntryView : MonoBehaviour
         ApplyTheme();
     }
 
+    public void ConfigureStateVisuals(Image configuredActiveIndicator, TMP_Text configuredControlLabel)
+    {
+        activeIndicator = configuredActiveIndicator;
+        controlLabel = configuredControlLabel;
+        ApplyTheme();
+    }
+
     public void Render(InitiativeEntryModel model)
     {
         DisplayedSquadId = model.SquadId;
         DisplaysDefeatedState = model.IsDefeated;
+        DisplaysActiveState = model.IsActive;
         if (squadIdLabel != null)
             squadIdLabel.text = model.SquadId;
         if (initiativeLabel != null)
@@ -62,6 +74,20 @@ public sealed class InitiativeEntryView : MonoBehaviour
         if (squadIdLabel != null && theme != null)
             squadIdLabel.color = model.IsDefeated ? theme.Disabled : theme.TextPrimary;
         selectionHighlight?.SetHighlighted(model.IsSelected);
+        if (activeIndicator != null)
+        {
+            activeIndicator.enabled = model.IsActive && !model.IsDefeated;
+            if (theme != null)
+                activeIndicator.color = theme.Gold;
+        }
+        if (controlLabel != null)
+        {
+            controlLabel.text = model.ControlType == SquadControlType.Human ? "HUMAN" : "AI";
+            if (theme != null)
+                controlLabel.color = model.ControlType == SquadControlType.Human
+                    ? theme.Emerald
+                    : theme.Bronze;
+        }
     }
 
     private void ApplyTheme()
@@ -85,6 +111,11 @@ public sealed class InitiativeEntryView : MonoBehaviour
             initiativeLabel.font = theme.AccentFont;
             initiativeLabel.fontSize = theme.BodySize;
             initiativeLabel.color = theme.Gold;
+        }
+        if (controlLabel != null)
+        {
+            controlLabel.font = theme.PrimaryFont;
+            controlLabel.fontSize = Mathf.Max(11f, theme.CaptionSize - 5f);
         }
     }
 }

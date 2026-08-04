@@ -18,6 +18,7 @@ public static class BattleEncounterContext
     public static EncounterInitiator Initiator { get; private set; }
     public static int PlayerInitiativeBonus { get; private set; }
     public static int EnemyInitiativeBonus { get; private set; }
+    public static string EncounterId { get; private set; }
 
     public static void SetEncounterData(
         int overworldSeed,
@@ -36,6 +37,10 @@ public static class BattleEncounterContext
         Initiator = initiator;
         PlayerInitiativeBonus = initiator == EncounterInitiator.Player ? initiativeBonus : 0;
         EnemyInitiativeBonus = initiator == EncounterInitiator.Enemy ? initiativeBonus : 0;
+        EncounterId = CreateEncounterId(
+            overworldSeed,
+            playerCell,
+            enemyCell);
         HasEncounterData = true;
     }
 
@@ -45,6 +50,7 @@ public static class BattleEncounterContext
         Initiator = EncounterInitiator.None;
         PlayerInitiativeBonus = 0;
         EnemyInitiativeBonus = 0;
+        EncounterId = null;
     }
 
     public static int CreateBattleSeed(int fallbackSeed = 0)
@@ -64,5 +70,14 @@ public static class BattleEncounterContext
             hash = hash * 31 + (int)EnemyBiome;
             return hash;
         }
+    }
+
+    public static string CreateEncounterId(
+        int overworldSeed,
+        Vector2Int playerCell,
+        Vector2Int enemyCell)
+    {
+        return $"encounter-{overworldSeed}-{playerCell.x}-{playerCell.y}-" +
+               $"{enemyCell.x}-{enemyCell.y}";
     }
 }
