@@ -68,7 +68,9 @@ public sealed class CommanderPortraitService
 
     public Sprite GetDisplaySprite(string portraitId)
     {
-        return database.TryGetById(portraitId, out CommanderPortraitEntry entry)
+        return database.TryGetById(portraitId, out CommanderPortraitEntry entry) &&
+               entry != null &&
+               entry.Sprite != null
             ? entry.Sprite
             : database.FallbackPortrait;
     }

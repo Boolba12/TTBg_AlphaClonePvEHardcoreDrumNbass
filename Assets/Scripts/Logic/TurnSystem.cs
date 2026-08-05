@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Linq;
 
 public class TurnSystem : MonoBehaviour
 {
@@ -8,6 +9,8 @@ public class TurnSystem : MonoBehaviour
     public PlayerController playerController;
     public EnemyController enemyController;
     public CameraFollow cameraFollow;
+    [SerializeField] private SquadSaveParticipant squadRepository;
+    [SerializeField] private SaveSystemBehaviour saveSystem;
 
     [Header("Timing")]
     [Range(0f, 1f)] public float cameraReturnDelay = 0.1f;
@@ -109,6 +112,10 @@ public class TurnSystem : MonoBehaviour
 
         if (cameraFollow == null)
             cameraFollow = FindAnyObjectByType<CameraFollow>();
+        if (squadRepository == null)
+            squadRepository = FindAnyObjectByType<SquadSaveParticipant>();
+        if (saveSystem == null)
+            saveSystem = FindAnyObjectByType<SaveSystemBehaviour>();
     }
 
     private void HookPlayerEvents()
@@ -217,6 +224,35 @@ public class TurnSystem : MonoBehaviour
             BiomeType playerBiome = mapGenerator.GetBiomeAt(playerEncounterCell.x, playerEncounterCell.y);
             BiomeType enemyBiome = mapGenerator.GetBiomeAt(enemyEncounterCell.x, enemyEncounterCell.y);
 
+            string encounterId = BattleEncounterContext.CreateEncounterId(
+                mapGenerator.seed,
+                playerEncounterCell,
+                enemyEncounterCell);
+            if (ResolvedEncounterRegistry.IsResolved(encounterId))
+                return false;
+
+            if (squadRepository != null && squadRepository.Squads.Count > 0)
+            {
+                SquadData playerSquad = squadRepository.Squads.FirstOrDefault(
+                    squad => squad != null && squad.IsBattleEligible);
+                if (playerSquad == null)
+                {
+                    Debug.LogWarning(
+                        "TurnSystem: no battle-eligible persistent Player squad is available.");
+                    return false;
+                }
+                BattleSquadSelectionContext.SetSelection(
+                    new[] { playerSquad },
+                    null);
+            }
+            else
+            {
+                // The very first development encounter has no persistent roster yet.
+                // Raw_Alpha_BattleMode creates and registers its explicit fallback once;
+                // later encounters use only the restored eligible persistent squad.
+                BattleSquadSelectionContext.Clear();
+            }
+
             BattleEncounterContext.SetEncounterData(
                 mapGenerator.seed,
                 playerEncounterCell,
@@ -242,6 +278,8 @@ public class TurnSystem : MonoBehaviour
         }
 
         battleLoadingTriggered = true;
+
+        saveSystem?.PrepareCurrentDataForSceneRestore(true);
 
         SceneManager.LoadScene(battleSceneName, LoadSceneMode.Single);
         return true;

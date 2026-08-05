@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f7b05cb23812e74ea2515a297a461c8, type: 3}
+  m_Name: PurgatoryUITheme
+  m_EditorClassIdentifier: Assembly-CSharp::PurgatoryUITheme
+  primaryFont: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  accentFont: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  captionSize: 18
+  bodySize: 22
+  headingSize: 30
+  panelSprite: {fileID: 3492542578593073980, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  buttonSprite: {fileID: -5768037918364221506, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  frameSprite: {fileID: -8106575128984400175, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  separatorSprite: {fileID: -6473511335728064641, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  developmentPortraitFallback: {fileID: -8268303105413309519, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  insetPanelSprite: {fileID: -236446738333717147, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  sectionHeaderSprite: {fileID: 8077458353017212007, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  selectedFrameSprite: {fileID: -3645785264049154271, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  buttonHoverSprite: {fileID: -6723331949430797925, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  buttonPressedSprite: {fileID: 5265899185871857980, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  buttonDisabledSprite: {fileID: 288803355563377052, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  portraitFrameSprite: {fileID: -8106575128984400175, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  initiativeCardSprite: {fileID: -5019540770684370668, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  equipmentSlotSprite: {fileID: -1850376368086481724, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  emptySlotSprite: {fileID: -7326087536648502720, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  iconPlaceholderSprite: {fileID: -3810732560433638365, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  blackStone: {r: 0.05882353, g: 0.06666667, b: 0.07058824, a: 0.9607843}
+  darkSteel: {r: 0.13725491, g: 0.16470589, b: 0.1764706, a: 0.9607843}
+  granite: {r: 0.2627451, g: 0.28235295, b: 0.27450982, a: 1}
+  marble: {r: 0.84313726, g: 0.8392157, b: 0.78039217, a: 1}
+  bronze: {r: 0.52156866, g: 0.34509805, b: 0.16470589, a: 1}
+  gold: {r: 0.8117647, g: 0.6431373, b: 0.27450982, a: 1}
+  emerald: {r: 0.12156863, g: 0.5294118, b: 0.34901962, a: 1}
+  danger: {r: 0.60784316, g: 0.2, b: 0.18431373, a: 1}
+  disabled: {r: 0.35686275, g: 0.36862746, b: 0.35686275, a: 0.74509805}
+  surfaceInset: {r: 0.08235294, g: 0.09803922, b: 0.101960786, a: 0.972549}
+  surfaceRaised: {r: 0.16470589, g: 0.1882353, b: 0.19215687, a: 0.972549}
+  playerSide: {r: 0.20392157, g: 0.45490196, b: 0.35686275, a: 1}
+  enemySide: {r: 0.49411765, g: 0.2509804, b: 0.21176471, a: 1}
+  textPrimary: {r: 0.8745098, g: 0.8627451, b: 0.7921569, a: 1}
+  textSecondary: {r: 0.6039216, g: 0.6156863, b: 0.5764706, a: 1}
+  overlay: {r: 0.03137255, g: 0.039215688, b: 0.039215688, a: 0.8235294}
+  separator: {r: 0.5686275, g: 0.38431373, b: 0.19215687, a: 1}
+  spaceSmall: 6
+  spaceMedium: 10
+  spaceLarge: 16
+  safeMargin: 20
+  cornerRadius: 8
+  borderWidth: 2
+  minimumButtonHeight: 48
+  compactPadding: 6
+  panelPadding: 10
+  compactSpacing: 6
+  portraitSize: 116
+  initiativePortraitSize: 56
+  initiativeCardWidth: 156
+  initiativeCardHeight: 66
+  actionControlHeight: 60
+  squadLabel: Squad
+  healthLabel: Health
+  actionPointsLabel: Action Points
+  moraleLabel: Morale
+  warriorsLabel: Warriors
+  initiativeLabel: Initiative
+  unavailableLabel: Unavailable in this build
+  emptySquadLabel: Player squad is unavailable

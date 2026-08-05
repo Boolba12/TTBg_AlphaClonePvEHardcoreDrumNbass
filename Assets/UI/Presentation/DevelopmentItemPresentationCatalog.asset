@@ -1,0 +1,145 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9eec8b54c7372a8458c2da5606d0257a, type: 3}
+  m_Name: DevelopmentItemPresentationCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::ItemPresentationCatalog
+  entries:
+  - stableId: dev-legacy-test-weapon
+    displayName: Legacy Test Weapon
+    previewSprite: {fileID: 0}
+    modelPrefab: {fileID: 0}
+    category: 5
+    developmentDescription: Existing Unity primitive weapon reference. No matching
+      Blender item model or verified preview image is present in the project, so
+      the gallery shows a controlled placeholder.
+    placeholder: 1
+    sourceWeapon: {fileID: 11400000, guid: a7fb672563cec764d87efb8d2b9dd82e, type: 2}
+  - stableId: test-weapon-07
+    displayName: Weapon 07
+    previewSprite: {fileID: 21300000, guid: 00f354f3431b66541906c8bbdff978b2, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: c80d38c9fd2586b4fa13a35f393309d3, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-dagger-01
+    displayName: Dagger 01
+    previewSprite: {fileID: 21300000, guid: c93efae935e723d468c06837e9a16b08, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: 50fbc7ae7d478484ab114f032fcb10a6, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-estoc-03
+    displayName: Estoc 03
+    previewSprite: {fileID: 21300000, guid: 4ba51b2057b67854e9ace99439253c64, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: 22cfc03f5bfb3a34ea3881c49f0afb21, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-falchion-04
+    displayName: Falchion 04
+    previewSprite: {fileID: 21300000, guid: 24a5c52380bc51744a1d0655d71c3e20, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: c3779befaee6d154a8f9636e8406fb23, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-greatsword-02
+    displayName: Greatsword 02
+    previewSprite: {fileID: 21300000, guid: cf3f8f3dfa431a24289f6d3507624d4b, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: 7a1d21ce130626147a42feaa071da9b3, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-longsword-05
+    displayName: Longsword 05
+    previewSprite: {fileID: 21300000, guid: 7400613cf30c856419d6b2a3fb9281d9, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: d12421e4f09a9e044a57b744c5a1e913, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-mace-04
+    displayName: Mace 04
+    previewSprite: {fileID: 21300000, guid: d898f3eeec7b6f746a26e751f45921fa, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: 27f1e09de6144914a9e7714358290e32, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-mace-10
+    displayName: Mace 10
+    previewSprite: {fileID: 21300000, guid: 917e1747e8050fd4a97a1f46974f4e89, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: 56d0340ae75efa74ab9f1b46af3cc5f4, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-sword-01
+    displayName: Sword 01
+    previewSprite: {fileID: 21300000, guid: aa733f38dada4b5409487faa8fdb0300, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: 7ce7d0012082a2a48b1a4b35bd61ef1d, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-sword-02
+    displayName: Sword 02
+    previewSprite: {fileID: 21300000, guid: 2f1e86963f2b1f6449166e7e58850e24, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: b979d13511bf4c545bc1045022bd6109, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-sword-03
+    displayName: Sword 03
+    previewSprite: {fileID: 21300000, guid: 6ff5227626fc76b47b9b90fce856fb79, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: d7b7a0686254cc2449361e44ad2d5682, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}
+  - stableId: test-wp-sword-04
+    displayName: Sword 04
+    previewSprite: {fileID: 21300000, guid: d8aa347c6eb032c42ba7974cd87feebe, type: 3}
+    modelPrefab: {fileID: 919132149155446097, guid: 5fdb318ebd87b3b43b86849ced2987aa, type: 3}
+    category: 6
+    developmentDescription: 'Audited static low-poly weapon: one mesh, UV0, internal
+      PBR material colors, no rig, no animation, and no external texture dependency.
+      Presentation-only in this stage.'
+    placeholder: 0
+    sourceWeapon: {fileID: 0}

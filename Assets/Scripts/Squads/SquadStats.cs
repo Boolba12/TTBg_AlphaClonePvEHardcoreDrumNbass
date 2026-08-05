@@ -12,11 +12,17 @@ public sealed class SquadBaseStats
     public float strength;
     public float dexterity;
     public float magicalMastery;
+    [UnityEngine.Tooltip("Normalized 0..1 bonus added to the configured base hit chance.")]
     public float accuracy;
+    [UnityEngine.Tooltip("Normalized 0..1 value subtracted from an attacker's hit chance.")]
     public float evasion;
+    [UnityEngine.Tooltip("Normalized 0..1 critical-hit chance.")]
     public float criticalChance;
+    [UnityEngine.Tooltip("Critical damage multiplier, for example 1.5 for 150% damage.")]
     public float criticalDamage;
+    [UnityEngine.Tooltip("Normalized 0..1 physical damage absorption before the rules cap.")]
     public float physicalArmor;
+    [UnityEngine.Tooltip("Reserved normalized resistance for future magical attacks.")]
     public float magicalResistance;
     public float morale;
     [UnityEngine.Tooltip("Reduces incoming morale loss before it is applied.")]

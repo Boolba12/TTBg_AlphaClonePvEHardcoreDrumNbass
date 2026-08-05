@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System;
 
 public sealed class SaveSystemBehaviour : MonoBehaviour
 {
@@ -14,12 +15,34 @@ public sealed class SaveSystemBehaviour : MonoBehaviour
 
     public bool IsBusy => loadInProgress || (service != null && service.IsBusy);
     public string SaveDirectory => System.IO.Path.Combine(Application.persistentDataPath, "Saves");
+    public GameSaveData CurrentData => currentData;
+    public SaveOperationResult LastOperationResult { get; private set; }
 
     private void Awake()
     {
         service = new SaveService(new JsonSaveFileStorage());
         RegisterConfiguredParticipants();
     }
+
+    public void ConfigureParticipants(IEnumerable<MonoBehaviour> configuredParticipants)
+    {
+        participants = configuredParticipants == null
+            ? new List<MonoBehaviour>()
+            : new List<MonoBehaviour>(configuredParticipants);
+    }
+
+#if UNITY_EDITOR
+    public bool ConfigureStorageRootForTests(string rootPath)
+    {
+        if (IsBusy || string.IsNullOrWhiteSpace(rootPath))
+            return false;
+        service = new SaveService(new JsonSaveFileStorage(rootPath));
+        currentData = null;
+        LastOperationResult = default;
+        RegisterConfiguredParticipants();
+        return true;
+    }
+#endif
 
     private IEnumerator Start()
     {
@@ -55,7 +78,54 @@ public sealed class SaveSystemBehaviour : MonoBehaviour
         EnsureCurrentData();
         currentData.sceneName = SceneManager.GetActiveScene().name;
         currentData.totalPlayTimeSeconds = Time.realtimeSinceStartupAsDouble;
-        Report(service.Autosave(currentData), "autosave");
+        LastOperationResult = service.Autosave(currentData);
+        Report(LastOperationResult, "autosave");
+    }
+
+    public SaveOperationResult AutosaveBattleResult(
+        string returnSceneName,
+        string resolvedEncounterId)
+    {
+        if (service == null)
+            return SaveOperationResult.Fail("Save service is not initialized.");
+        if (string.IsNullOrWhiteSpace(returnSceneName))
+            return SaveOperationResult.Fail("Return scene name is missing.");
+
+        EnsureCurrentData();
+        currentData.sceneName = returnSceneName;
+        currentData.totalPlayTimeSeconds = Time.realtimeSinceStartupAsDouble;
+        currentData.playerProgress ??= new PlayerProgressData();
+        if (BattleEncounterContext.HasEncounterData)
+        {
+            currentData.playerProgress.mapSeed = BattleEncounterContext.OverworldSeed;
+            currentData.playerProgress.hasOverworldPositions = true;
+            currentData.playerProgress.playerCell = new Int2Data(
+                BattleEncounterContext.PlayerEncounterCell.x,
+                BattleEncounterContext.PlayerEncounterCell.y);
+            currentData.playerProgress.enemyCell = new Int2Data(
+                BattleEncounterContext.EnemyEncounterCell.x,
+                BattleEncounterContext.EnemyEncounterCell.y);
+        }
+        if (!string.IsNullOrWhiteSpace(resolvedEncounterId))
+            ResolvedEncounterRegistry.MarkResolved(resolvedEncounterId);
+        currentData.playerProgress.resolvedEncounterIds =
+            new List<string>(ResolvedEncounterRegistry.EncounterIds);
+
+        LastOperationResult = service.Autosave(
+            currentData,
+            new HashSet<string>(StringComparer.Ordinal) { "overworld" });
+        Report(LastOperationResult, "battle-result autosave");
+        return LastOperationResult;
+    }
+
+    public bool PrepareCurrentDataForSceneRestore(bool createIfMissing = false)
+    {
+        if (currentData == null && createIfMissing)
+            EnsureCurrentData();
+        if (currentData == null)
+            return false;
+        PendingSaveLoadContext.Set(currentData);
+        return true;
     }
 
     public void LoadGame()

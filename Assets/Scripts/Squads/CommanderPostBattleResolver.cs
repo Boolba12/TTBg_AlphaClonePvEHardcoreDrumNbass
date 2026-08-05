@@ -7,6 +7,8 @@ public sealed class CommanderPostBattleResult
     public bool permanentlyDead;
     public bool survived;
     public string permanentDebuffId;
+    public CommanderPostBattleOutcomeType outcomeType;
+    public string sourceBattleId;
 }
 
 public interface ICommanderPostBattleResolver
@@ -40,5 +42,12 @@ public sealed class CommanderPostBattleService
             squad.Commander.permanentDebuffIds.Add(result.permanentDebuffId);
         }
         return result;
+    }
+
+    public CommanderPostBattleResult Resolve(SquadData squad, SquadBattleState battleState)
+    {
+        if (squad?.Commander == null)
+            throw new ArgumentException("A commander is required.");
+        return resolver.Resolve(squad.Commander, battleState);
     }
 }

@@ -88,6 +88,22 @@ public sealed class SquadBattleRuntime
         return true;
     }
 
+    /// <summary>
+    /// Narrow rollback hook for a command that spent AP but failed before applying
+    /// any battle-state effect. Combat services must not use this as a general AP grant.
+    /// </summary>
+    internal bool RestoreActionPointsAfterFailedCommit(int amount)
+    {
+        if (!CanAct || amount <= 0)
+            return false;
+
+        State.currentActionPoints = Math.Min(
+            Stats.ActionPoints,
+            State.currentActionPoints + amount);
+        OnActionPointsChanged?.Invoke(State.currentActionPoints);
+        return true;
+    }
+
     public void BeginTurn()
     {
         if (!CanAct)

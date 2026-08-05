@@ -25,6 +25,13 @@ public static class BattleSquadSelectionContext
         EnemySelection.Clear();
     }
 
+    public static bool Consume()
+    {
+        bool hadSelection = HasSelection;
+        Clear();
+        return hadSelection;
+    }
+
     private static void AddValidReferences(List<SquadData> target, IEnumerable<SquadData> source)
     {
         if (source == null)

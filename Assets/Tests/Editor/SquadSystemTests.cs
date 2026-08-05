@@ -180,6 +180,7 @@ public sealed class SquadSystemTests
             SquadSaveParticipant source = sourceObject.AddComponent<SquadSaveParticipant>();
             Assert.That(source.TryAddSquad(squad, out _), Is.True);
             source.RegisterRuntime(runtime);
+            source.SetActiveBattleStateSaving(true);
             string json = source.CaptureState();
 
             SquadSaveParticipant restored = restoredObject.AddComponent<SquadSaveParticipant>();

@@ -12,5 +12,313 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 706b3acb4ffa9b1498f70683879c2e1c, type: 3}
   m_Name: CommanderPortraitDatabase
   m_EditorClassIdentifier: Assembly-CSharp::CommanderPortraitDatabase
-  fallbackPortrait: {fileID: 0}
-  entries: []
+  fallbackPortrait: {fileID: -8268303105413309519, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  entries:
+  - id: 02a733af5d288694d8caccd17013a412
+    sprite: {fileID: 21300000, guid: 02a733af5d288694d8caccd17013a412, type: 3}
+    race: 0
+    resourceName: MWarriorNoble3
+  - id: 032517bcb3c09544eab91f684a775ffe
+    sprite: {fileID: 21300000, guid: 032517bcb3c09544eab91f684a775ffe, type: 3}
+    race: 0
+    resourceName: MHanzoDorian1
+  - id: 16e030c0338a86e43924be4493e7e6a3
+    sprite: {fileID: 21300000, guid: 16e030c0338a86e43924be4493e7e6a3, type: 3}
+    race: 1
+    resourceName: WBarbarian1
+  - id: 17a7777dac665ac40b9a5dab3e171952
+    sprite: {fileID: 21300000, guid: 17a7777dac665ac40b9a5dab3e171952, type: 3}
+    race: 0
+    resourceName: WWizardHat7
+  - id: 1a2f828bb0428d34ea4ad28affe7c59d
+    sprite: {fileID: 21300000, guid: 1a2f828bb0428d34ea4ad28affe7c59d, type: 3}
+    race: 0
+    resourceName: WPaladin3
+  - id: 1ae2fa7883e3de6439a00ee5642b5250
+    sprite: {fileID: 21300000, guid: 1ae2fa7883e3de6439a00ee5642b5250, type: 3}
+    race: 1
+    resourceName: WWarriorNoble2
+  - id: 1c12e575c05dc2941b9785f63dbe33cb
+    sprite: {fileID: 21300000, guid: 1c12e575c05dc2941b9785f63dbe33cb, type: 3}
+    race: 0
+    resourceName: MPeasant2
+  - id: 1d804df74e498d642813048077e9ee7d
+    sprite: {fileID: 21300000, guid: 1d804df74e498d642813048077e9ee7d, type: 3}
+    race: 0
+    resourceName: MSorcerer4
+  - id: 211f9509a90ba3748bdfdacfe3887e7e
+    sprite: {fileID: 21300000, guid: 211f9509a90ba3748bdfdacfe3887e7e, type: 3}
+    race: 1
+    resourceName: WWarloc2
+  - id: 216ca1a4cb0a70945bbfe7c9522aa34a
+    sprite: {fileID: 21300000, guid: 216ca1a4cb0a70945bbfe7c9522aa34a, type: 3}
+    race: 0
+    resourceName: WPaladin2
+  - id: 257cd9ccdec72604795f8a652a129546
+    sprite: {fileID: 21300000, guid: 257cd9ccdec72604795f8a652a129546, type: 3}
+    race: 1
+    resourceName: WWizard2
+  - id: 2715f7c2998bd55448198ed1c80bd6b7
+    sprite: {fileID: 21300000, guid: 2715f7c2998bd55448198ed1c80bd6b7, type: 3}
+    race: 1
+    resourceName: WWarlocNoble1
+  - id: 2a158aa553f13a74a8cf8294f8b2438c
+    sprite: {fileID: 21300000, guid: 2a158aa553f13a74a8cf8294f8b2438c, type: 3}
+    race: 0
+    resourceName: MWarriorNoble4
+  - id: 2a69dbd161599374ba07c7f4d614b415
+    sprite: {fileID: 21300000, guid: 2a69dbd161599374ba07c7f4d614b415, type: 3}
+    race: 1
+    resourceName: WWarriorNoble3
+  - id: 2af1970113087834a92b78159ba37a22
+    sprite: {fileID: 21300000, guid: 2af1970113087834a92b78159ba37a22, type: 3}
+    race: 0
+    resourceName: WRogue2
+  - id: 2b1042771c3784e4d9b9736f96bb23ad
+    sprite: {fileID: 21300000, guid: 2b1042771c3784e4d9b9736f96bb23ad, type: 3}
+    race: 0
+    resourceName: MWarrior4
+  - id: 2d0d5d30fb861df47a9a61d0c5ed2400
+    sprite: {fileID: 21300000, guid: 2d0d5d30fb861df47a9a61d0c5ed2400, type: 3}
+    race: 1
+    resourceName: WWarlocNoble2
+  - id: 2db8aca8394f2234f871d1a85643d119
+    sprite: {fileID: 21300000, guid: 2db8aca8394f2234f871d1a85643d119, type: 3}
+    race: 0
+    resourceName: WWarroir2
+  - id: 324155b26b0ac3c41b87965a45ca9e3b
+    sprite: {fileID: 21300000, guid: 324155b26b0ac3c41b87965a45ca9e3b, type: 3}
+    race: 0
+    resourceName: MSorcerer1
+  - id: 345e8b9d628cc6742b2600c2190945f6
+    sprite: {fileID: 21300000, guid: 345e8b9d628cc6742b2600c2190945f6, type: 3}
+    race: 0
+    resourceName: WWarroir3
+  - id: 34e1287efebb99e44a6645601031162b
+    sprite: {fileID: 21300000, guid: 34e1287efebb99e44a6645601031162b, type: 3}
+    race: 0
+    resourceName: WWizard4
+  - id: 40c744f6e48799e4b826839df0bd2b77
+    sprite: {fileID: 21300000, guid: 40c744f6e48799e4b826839df0bd2b77, type: 3}
+    race: 0
+    resourceName: MPaladin1
+  - id: 43211332fff738345b3eee41e674df26
+    sprite: {fileID: 21300000, guid: 43211332fff738345b3eee41e674df26, type: 3}
+    race: 0
+    resourceName: WWizardHat2
+  - id: 47085372d51c41b42a43935409798659
+    sprite: {fileID: 21300000, guid: 47085372d51c41b42a43935409798659, type: 3}
+    race: 0
+    resourceName: WWizard3
+  - id: 48c181812ba871a4bad954cec57b147b
+    sprite: {fileID: 21300000, guid: 48c181812ba871a4bad954cec57b147b, type: 3}
+    race: 1
+    resourceName: WNobleElf4
+  - id: 495c7cc1be2767846a8314dd360430d8
+    sprite: {fileID: 21300000, guid: 495c7cc1be2767846a8314dd360430d8, type: 3}
+    race: 1
+    resourceName: WWarriorElf1
+  - id: 4bcf1274edf8d7745833d4089171664c
+    sprite: {fileID: 21300000, guid: 4bcf1274edf8d7745833d4089171664c, type: 3}
+    race: 0
+    resourceName: WWizardHat3
+  - id: 50297c85bd1350849b57308aa21f7cfc
+    sprite: {fileID: 21300000, guid: 50297c85bd1350849b57308aa21f7cfc, type: 3}
+    race: 0
+    resourceName: MWarrior2
+  - id: 51912e3963b89884b9da07dab977e90e
+    sprite: {fileID: 21300000, guid: 51912e3963b89884b9da07dab977e90e, type: 3}
+    race: 0
+    resourceName: WRogue4
+  - id: 523013e802a1c3244962a0e6e76ab9d1
+    sprite: {fileID: 21300000, guid: 523013e802a1c3244962a0e6e76ab9d1, type: 3}
+    race: 1
+    resourceName: WNobleElf3
+  - id: 5638b4ccbd7525c41a5a66af34b206ff
+    sprite: {fileID: 21300000, guid: 5638b4ccbd7525c41a5a66af34b206ff, type: 3}
+    race: 1
+    resourceName: WNobleElf1
+  - id: 57c8f9f78c4fc554aa68fbcdaf105e40
+    sprite: {fileID: 21300000, guid: 57c8f9f78c4fc554aa68fbcdaf105e40, type: 3}
+    race: 0
+    resourceName: MPeasant3
+  - id: 58ddf98ae7de94e4b905b094bf6c3c6e
+    sprite: {fileID: 21300000, guid: 58ddf98ae7de94e4b905b094bf6c3c6e, type: 3}
+    race: 0
+    resourceName: MPaladin2
+  - id: 5dfe73f7dc5fbf942b5dc3093176bd66
+    sprite: {fileID: 21300000, guid: 5dfe73f7dc5fbf942b5dc3093176bd66, type: 3}
+    race: 0
+    resourceName: WWizardHat1
+  - id: 66b307ffc148baa448c5d56526375d4c
+    sprite: {fileID: 21300000, guid: 66b307ffc148baa448c5d56526375d4c, type: 3}
+    race: 1
+    resourceName: WWizard1
+  - id: 684eff9c5de93b74aa1f775962e4b140
+    sprite: {fileID: 21300000, guid: 684eff9c5de93b74aa1f775962e4b140, type: 3}
+    race: 1
+    resourceName: WDruid1
+  - id: 695615f8d6070354f93011261c90225b
+    sprite: {fileID: 21300000, guid: 695615f8d6070354f93011261c90225b, type: 3}
+    race: 0
+    resourceName: WWarroir4
+  - id: 6f6c3a69664633d45953c11f2927db4e
+    sprite: {fileID: 21300000, guid: 6f6c3a69664633d45953c11f2927db4e, type: 3}
+    race: 0
+    resourceName: WRanger1
+  - id: 71e96ed4f4356c148b654a368d66c983
+    sprite: {fileID: 21300000, guid: 71e96ed4f4356c148b654a368d66c983, type: 3}
+    race: 0
+    resourceName: MWarriorNoble2
+  - id: 73c45e0772899f648bef0c1ca3aefc87
+    sprite: {fileID: 21300000, guid: 73c45e0772899f648bef0c1ca3aefc87, type: 3}
+    race: 0
+    resourceName: WRanger2
+  - id: 75c9eb50949a12647a2db4aedced8d43
+    sprite: {fileID: 21300000, guid: 75c9eb50949a12647a2db4aedced8d43, type: 3}
+    race: 0
+    resourceName: MSorcerer3
+  - id: 77cb8cba1b1653d48ac59109be97bc3f
+    sprite: {fileID: 21300000, guid: 77cb8cba1b1653d48ac59109be97bc3f, type: 3}
+    race: 0
+    resourceName: MPaladin3
+  - id: 8213a241fa00fbe4b8db97d5ee1ea4e2
+    sprite: {fileID: 21300000, guid: 8213a241fa00fbe4b8db97d5ee1ea4e2, type: 3}
+    race: 1
+    resourceName: WWarriorElf4
+  - id: 82be771bdcccf934ca55cf246cb45319
+    sprite: {fileID: 21300000, guid: 82be771bdcccf934ca55cf246cb45319, type: 3}
+    race: 1
+    resourceName: WWizard3
+  - id: 8340cdf8db3ed754d8610ca982041a05
+    sprite: {fileID: 21300000, guid: 8340cdf8db3ed754d8610ca982041a05, type: 3}
+    race: 1
+    resourceName: WWarrior3
+  - id: 884ae4b2737855b4fba945c2fee415e4
+    sprite: {fileID: 21300000, guid: 884ae4b2737855b4fba945c2fee415e4, type: 3}
+    race: 1
+    resourceName: WPaladin1
+  - id: 8ef660779576c754d8874293d74855f5
+    sprite: {fileID: 21300000, guid: 8ef660779576c754d8874293d74855f5, type: 3}
+    race: 1
+    resourceName: WWarriorNoble1
+  - id: 90442d911aff7fd4db2759163ac6527e
+    sprite: {fileID: 21300000, guid: 90442d911aff7fd4db2759163ac6527e, type: 3}
+    race: 0
+    resourceName: MSorcerer2
+  - id: 944df7fa6f2169742a25a64ec0e04165
+    sprite: {fileID: 21300000, guid: 944df7fa6f2169742a25a64ec0e04165, type: 3}
+    race: 0
+    resourceName: MWarrior1
+  - id: 946030a9f4296aa418adb923ba2e31cc
+    sprite: {fileID: 21300000, guid: 946030a9f4296aa418adb923ba2e31cc, type: 3}
+    race: 1
+    resourceName: WDruid2
+  - id: 9980cc677e8f5e14c9da4d34af532eab
+    sprite: {fileID: 21300000, guid: 9980cc677e8f5e14c9da4d34af532eab, type: 3}
+    race: 0
+    resourceName: MHanzoDorian2
+  - id: 9a277a14ef90ab2409afa4495792fb19
+    sprite: {fileID: 21300000, guid: 9a277a14ef90ab2409afa4495792fb19, type: 3}
+    race: 0
+    resourceName: MPeasant4
+  - id: 9c0cdc508b80d7249b0fb57bb516eec6
+    sprite: {fileID: 21300000, guid: 9c0cdc508b80d7249b0fb57bb516eec6, type: 3}
+    race: 1
+    resourceName: WNobleElf5
+  - id: 9d9ed2e580b031a4781592fe8f9fd8d6
+    sprite: {fileID: 21300000, guid: 9d9ed2e580b031a4781592fe8f9fd8d6, type: 3}
+    race: 1
+    resourceName: WCleric1
+  - id: 9fbb35ed827b4594997bbebf75d02087
+    sprite: {fileID: 21300000, guid: 9fbb35ed827b4594997bbebf75d02087, type: 3}
+    race: 0
+    resourceName: WRogue1
+  - id: aaf9a8090fb55b2418edfcb32ff065ba
+    sprite: {fileID: 21300000, guid: aaf9a8090fb55b2418edfcb32ff065ba, type: 3}
+    race: 0
+    resourceName: WWizardHat4
+  - id: ac44b09561ccbea429d6e08bb9f13c0d
+    sprite: {fileID: 21300000, guid: ac44b09561ccbea429d6e08bb9f13c0d, type: 3}
+    race: 1
+    resourceName: WWarriorElf3
+  - id: b052b374b2ee9ef4b9c93bb2f5977eb7
+    sprite: {fileID: 21300000, guid: b052b374b2ee9ef4b9c93bb2f5977eb7, type: 3}
+    race: 0
+    resourceName: WRanger3
+  - id: b8bed0984c2081f4ba44c27eda9906e0
+    sprite: {fileID: 21300000, guid: b8bed0984c2081f4ba44c27eda9906e0, type: 3}
+    race: 0
+    resourceName: WPaladin1
+  - id: c77dbe09844908e49be61bb762a1b917
+    sprite: {fileID: 21300000, guid: c77dbe09844908e49be61bb762a1b917, type: 3}
+    race: 0
+    resourceName: MWarriorNoble1
+  - id: cdbbe7b29def7af43b57c706d90ef73a
+    sprite: {fileID: 21300000, guid: cdbbe7b29def7af43b57c706d90ef73a, type: 3}
+    race: 1
+    resourceName: WWarrior1
+  - id: cdf076d69752fd24999fe2b3bd55b1c7
+    sprite: {fileID: 21300000, guid: cdf076d69752fd24999fe2b3bd55b1c7, type: 3}
+    race: 1
+    resourceName: WWarloc1
+  - id: ce118d5c3daa67d4fa910703de0e5450
+    sprite: {fileID: 21300000, guid: ce118d5c3daa67d4fa910703de0e5450, type: 3}
+    race: 0
+    resourceName: WRogue3
+  - id: d0cccdd18e581c049a5fee689b8b7a24
+    sprite: {fileID: 21300000, guid: d0cccdd18e581c049a5fee689b8b7a24, type: 3}
+    race: 1
+    resourceName: WDruid3
+  - id: d136fa039b108f14f80ce32e7b333fcd
+    sprite: {fileID: 21300000, guid: d136fa039b108f14f80ce32e7b333fcd, type: 3}
+    race: 0
+    resourceName: MPeasant1
+  - id: d30bf55e3f78a7143982cefa58c281c3
+    sprite: {fileID: 21300000, guid: d30bf55e3f78a7143982cefa58c281c3, type: 3}
+    race: 0
+    resourceName: WWizard1
+  - id: d3281831e709d4a42a225e2da856a4ee
+    sprite: {fileID: 21300000, guid: d3281831e709d4a42a225e2da856a4ee, type: 3}
+    race: 0
+    resourceName: MWarrior3
+  - id: de45e7fe829a5ec49bceefc7593d5952
+    sprite: {fileID: 21300000, guid: de45e7fe829a5ec49bceefc7593d5952, type: 3}
+    race: 1
+    resourceName: WWarriorElf5
+  - id: e211aff785ea8ff48b875cc1d804488e
+    sprite: {fileID: 21300000, guid: e211aff785ea8ff48b875cc1d804488e, type: 3}
+    race: 0
+    resourceName: MPaladin4
+  - id: e7ab38273803dda4b8499c90534d8bca
+    sprite: {fileID: 21300000, guid: e7ab38273803dda4b8499c90534d8bca, type: 3}
+    race: 0
+    resourceName: WWizardHat5
+  - id: e9b8a573fe57a9540868b0b3934b7a73
+    sprite: {fileID: 21300000, guid: e9b8a573fe57a9540868b0b3934b7a73, type: 3}
+    race: 0
+    resourceName: WWizardHat6
+  - id: f3413dda673e9f147967c897d24c0ec9
+    sprite: {fileID: 21300000, guid: f3413dda673e9f147967c897d24c0ec9, type: 3}
+    race: 1
+    resourceName: WWarriorElf2
+  - id: f3e12c8666660834dbca8a5b9709e520
+    sprite: {fileID: 21300000, guid: f3e12c8666660834dbca8a5b9709e520, type: 3}
+    race: 1
+    resourceName: WNobleElf2
+  - id: f4670ba97b7848146b48525833ee7406
+    sprite: {fileID: 21300000, guid: f4670ba97b7848146b48525833ee7406, type: 3}
+    race: 1
+    resourceName: WWarlocNoble3
+  - id: faedf9529453b2540ab2a23c4d4fa988
+    sprite: {fileID: 21300000, guid: faedf9529453b2540ab2a23c4d4fa988, type: 3}
+    race: 0
+    resourceName: WWizard2
+  - id: fd04c6b508518c74d9f9b0c9540f3e2c
+    sprite: {fileID: 21300000, guid: fd04c6b508518c74d9f9b0c9540f3e2c, type: 3}
+    race: 1
+    resourceName: WWarrior2
+  - id: ffad5037d89e2cc44a02e290943ac882
+    sprite: {fileID: 21300000, guid: ffad5037d89e2cc44a02e290943ac882, type: 3}
+    race: 0
+    resourceName: WWarroir1
