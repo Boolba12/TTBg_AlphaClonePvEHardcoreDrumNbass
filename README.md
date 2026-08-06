@@ -1,35 +1,27 @@
-D# Tactical Turn-Based Game
+# Tactical Turn-Based Game
 
-Unity project for a tactical turn-based prototype with procedural map generation, biome rendering, and player movement.
+Unity prototype for tactical, turn-based gameplay with procedural map generation, biome rendering, and movement/combat systems.
 
-## Clone and Run
-Kumis
-1. Clone the repository.
+## Requirements
+
+- Unity Editor `6000.5.2f1` (see `/ProjectSettings/ProjectVersion.txt`)
+
+## Getting Started
+
+1. Clone this repository.
 2. Open Unity Hub.
-3. Add this folder as a project.
-4. Open with the same Unity version used by the project (see ProjectSettings/ProjectVersion.txt).
-5. Open a scene from Assets/Scenes and press Play.
+3. Add the repository root folder as a project.
+4. Open the project with Unity `6000.5.2f1`.
+5. Open a scene from `/Assets/Scenes` (for example, `Raw_Alpha_BattleMode.unity`) and press **Play**.
 
-## Git Setup (Owner)
+## Repository Layout
 
-Run in project root:
+- `/Assets/Scenes` — playable scenes and prototypes.
+- `/Assets/Scripts` — gameplay and systems code.
+- `/Assets/GameData` — game configuration and content data.
+- `/Assets/Tests` — Unity test assets.
 
-git init
-git add .
-git commit -m "Initial Unity project"
-git branch -M main
-git remote add origin <your-repo-url>
-git push -u origin main
+## Collaboration Notes
 
-## Give Friend Read-Only Access (GitHub)
-
-1. Open repository Settings.
-2. Go to Collaborators and teams.
-3. Invite your friend.
-4. Set permission to Read.
-
-Read permission allows cloning and pulling updates, but blocks direct pushes and edits in the repository.
-
-## Notes
-
-This repository ignores Unity generated folders and local IDE files through .gitignore.
+- The repository `.gitignore` already excludes Unity-generated and local IDE files.
+- For read-only collaboration in GitHub, invite collaborators with **Read** permission.
