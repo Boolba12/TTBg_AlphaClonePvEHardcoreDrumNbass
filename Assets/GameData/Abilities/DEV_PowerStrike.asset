@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb9fda57e7c2f114ebcd1c06d00fbcfe, type: 3}
+  m_Name: DEV_PowerStrike
+  m_EditorClassIdentifier: Assembly-CSharp::AbilityDefinition
+  stableId: DEV_PowerStrike
+  displayName: Power Strike
+  description: A committed heavy physical strike against one formation member.
+  icon: {fileID: 21300000, guid: aa733f38dada4b5409487faa8fdb0300, type: 3}
+  actionPointCost: 3
+  cooldownRounds: 1
+  targetType: 1
+  minimumRange: 1
+  maximumRange: 1
+  effectType: 0
+  attackEffect: {fileID: 11400000, guid: 81047fc3749ace449a583b2d86f2c20a, type: 2}
+  moraleRestore: 0
+  hasProgressionStat: 1
+  progressionStat: 0
+  hotkey: 41
+  developmentOnly: 1

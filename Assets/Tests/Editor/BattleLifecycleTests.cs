@@ -339,8 +339,21 @@ public sealed class BattleLifecycleTests
             OpenSceneMode.Single);
         Assert.That(FindInScene<BattleCompletionController>(battle).Length, Is.EqualTo(1));
         Assert.That(FindInScene<BattleResultPanelView>(battle).Length, Is.EqualTo(1));
-        Assert.That(FindInScene<BattleResultPanelView>(battle)[0]
-            .GetComponentsInParent<Canvas>(true).Length, Is.EqualTo(1));
+        BattleResultPanelView resultPanel = FindInScene<BattleResultPanelView>(battle)[0];
+        Assert.That(resultPanel.GetComponentsInParent<Canvas>(true).Length, Is.EqualTo(1));
+        GameObject modalLayer = resultPanel.transform.parent.gameObject;
+        modalLayer.SetActive(false);
+        resultPanel.Show(new BattleOutcome
+        {
+            battleId = "battle-modal-contract",
+            resultType = BattleResultType.Victory,
+            participantResults = new List<SquadBattleResult>()
+        }, SaveOperationResult.Ok());
+        Assert.That(modalLayer.activeInHierarchy, Is.True,
+            "Showing a result must activate the serialized ModalLayer parent.");
+        Assert.That(resultPanel.IsVisible, Is.True);
+        Assert.That(resultPanel.ContinueButton.interactable, Is.True);
+        resultPanel.Hide();
         Assert.That(FindInScene<UnityEngine.EventSystems.EventSystem>(battle).Length,
             Is.EqualTo(1));
 

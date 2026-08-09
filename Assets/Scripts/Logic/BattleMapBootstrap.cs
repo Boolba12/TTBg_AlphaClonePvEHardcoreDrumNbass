@@ -30,9 +30,9 @@ public class BattleMapBootstrap : MonoBehaviour
 
     [Header("Optional Battle Size Override")]
     public bool overrideBattleSize;
-    [Min(4)] public int battleWidth = 16;
-    [Min(4)] public int battleHeight = 16;
-    [Min(4)] public int battlePlayableCount = 180;
+    [Min(4)] public int battleWidth = 32;
+    [Min(4)] public int battleHeight = 32;
+    [Min(4)] public int battlePlayableCount = 720;
 
     [Header("Battle Movement")]
     public bool enableDiagonalMovement = true;

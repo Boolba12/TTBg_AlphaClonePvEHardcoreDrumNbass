@@ -113,6 +113,32 @@ public sealed class SquadAttackTargetView : MonoBehaviour
         StartFeedback(text, color, 0.7f);
     }
 
+    public void ShowAbilityResult(BattleAbilityResult result)
+    {
+        if (result == null || !result.WasExecuted)
+            return;
+        if (result.MoraleRestored > 0f)
+        {
+            StartFeedback(
+                $"+{result.MoraleRestored:0.#} MORALE",
+                theme != null ? theme.Emerald : Color.green,
+                0.7f);
+            return;
+        }
+
+        string text = !result.Hit
+            ? "MISS"
+            : result.Critical
+                ? $"CRITICAL  -{result.Damage}"
+                : $"-{result.Damage}";
+        Color color = !result.Hit
+            ? theme != null ? theme.TextSecondary : Color.gray
+            : result.Critical
+                ? theme != null ? theme.Gold : Color.yellow
+                : theme != null ? theme.Danger : Color.red;
+        StartFeedback(text, color, 0.7f);
+    }
+
     private void StartFeedback(string text, Color color, float duration)
     {
         LastFeedback = text;

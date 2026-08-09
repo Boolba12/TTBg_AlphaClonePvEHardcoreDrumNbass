@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9052469b8d8f5f64db8fbd59c5be2f0f, type: 3}
+  m_Name: DEV_PowerStrike_Attack
+  m_EditorClassIdentifier: Assembly-CSharp::AttackDefinition
+  stableId: dev-power-strike-attack
+  displayName: Power Strike Attack
+  category: 1
+  damageType: 0
+  distribution: 0
+  delivery: 0
+  baseDamage: 4
+  actionPointCost: 3
+  minimumRange: 1
+  maximumRange: 1
+  primaryScalingStat: 0
+  primaryStatScaling: 0.85
+  criticalEnabled: 1
+  friendlyFire: 0
+  hotkey: 0
+  optionalWeaponReference: {fileID: 0}
+  previewSprite: {fileID: 21300000, guid: aa733f38dada4b5409487faa8fdb0300, type: 3}
+  modelPrefab: {fileID: 919132149155446097, guid: 7ce7d0012082a2a48b1a4b35bd61ef1d, type: 3}

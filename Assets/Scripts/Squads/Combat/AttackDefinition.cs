@@ -3,7 +3,8 @@ using UnityEngine.InputSystem;
 
 public enum BattleAttackCategory
 {
-    Basic
+    Basic,
+    Ability
 }
 
 public enum BattleDamageType
@@ -81,8 +82,9 @@ public sealed class AttackDefinition : ScriptableObject
             reason = "Attack display name is missing.";
         else if (maximumRange < minimumRange)
             reason = "Attack maximum range is below its minimum range.";
-        else if (distribution != SquadDamageDistribution.SingleTarget)
-            reason = "Only SingleTarget attacks are supported in this stage.";
+        else if (distribution != SquadDamageDistribution.SingleTarget &&
+                 distribution != SquadDamageDistribution.Area)
+            reason = "Attack damage distribution is unsupported.";
         else if (damageType != BattleDamageType.Physical || delivery != BattleAttackDelivery.Melee)
             reason = "Only physical melee attacks are supported in this stage.";
         else
@@ -115,6 +117,36 @@ public sealed class AttackDefinition : ScriptableObject
         criticalEnabled = true;
         friendlyFire = false;
         hotkey = Key.A;
+        optionalWeaponReference = null;
+        previewSprite = configuredPreview;
+        modelPrefab = configuredModel;
+    }
+
+    public void ConfigureDevelopmentAbilityEffect(
+        string id,
+        string configuredDisplayName,
+        int configuredBaseDamage,
+        int configuredActionPointCost,
+        float strengthScaling,
+        SquadDamageDistribution configuredDistribution,
+        Sprite configuredPreview,
+        GameObject configuredModel)
+    {
+        stableId = id;
+        displayName = configuredDisplayName;
+        category = BattleAttackCategory.Ability;
+        damageType = BattleDamageType.Physical;
+        distribution = configuredDistribution;
+        delivery = BattleAttackDelivery.Melee;
+        baseDamage = Mathf.Max(0, configuredBaseDamage);
+        actionPointCost = Mathf.Max(0, configuredActionPointCost);
+        minimumRange = 1;
+        maximumRange = 1;
+        primaryScalingStat = AttackScalingStat.Strength;
+        primaryStatScaling = Mathf.Max(0f, strengthScaling);
+        criticalEnabled = true;
+        friendlyFire = false;
+        hotkey = Key.None;
         optionalWeaponReference = null;
         previewSprite = configuredPreview;
         modelPrefab = configuredModel;

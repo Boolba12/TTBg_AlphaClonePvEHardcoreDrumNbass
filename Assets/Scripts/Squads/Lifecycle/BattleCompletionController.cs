@@ -13,6 +13,8 @@ public sealed class BattleCompletionController : MonoBehaviour
     [SerializeField] private MovementCommandController movementCommands;
     [SerializeField] private BattleAttackService attackService;
     [SerializeField] private AttackCommandController attackCommands;
+    [SerializeField] private BattleAbilityService abilityService;
+    [SerializeField] private AbilityCommandController abilityCommands;
     [SerializeField] private BattleHUDController battleHud;
     [SerializeField] private SquadSaveParticipant squadRepository;
     [SerializeField] private SaveSystemBehaviour saveSystem;
@@ -89,6 +91,14 @@ public sealed class BattleCompletionController : MonoBehaviour
         autosaveOverride = autosave;
         sceneLoadOverride = sceneLoader;
         randomFactoryOverride = randomFactory;
+    }
+
+    public void ConfigureAbilities(
+        BattleAbilityService configuredAbilityService,
+        AbilityCommandController configuredAbilityCommands)
+    {
+        abilityService = configuredAbilityService;
+        abilityCommands = configuredAbilityCommands;
     }
 
     public bool Initialize(
@@ -230,7 +240,9 @@ public sealed class BattleCompletionController : MonoBehaviour
             winningSide,
             losingSide,
             turnController.CurrentRound,
-            turnController.CompletedTurnCount);
+            turnController.CompletedTurnCount,
+            null,
+            abilityService?.CreateUsageRecords());
         if (!build.Success)
             return Fail(build.Error);
 
@@ -312,6 +324,8 @@ public sealed class BattleCompletionController : MonoBehaviour
         movementCommands.SetBattleCommandsEnabled(false);
         attackService.SetCommandsEnabled(false);
         attackCommands.SetBattleCommandsEnabled(false);
+        abilityService?.SetCommandsEnabled(false);
+        abilityCommands?.SetBattleCommandsEnabled(false);
         turnController.StopBattleLifecycle();
         battleHud.SetBattleCommandsAvailable(false);
     }

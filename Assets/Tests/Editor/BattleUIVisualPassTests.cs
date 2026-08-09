@@ -188,11 +188,17 @@ public sealed class BattleUIVisualPassTests
                 .Count(image => image.gameObject.name == "VerticalSeparator"),
             Is.EqualTo(3));
         Assert.That(bottom.GetComponentsInChildren<BattleActionControlView>(true).Length,
-            Is.EqualTo(7));
+            Is.EqualTo(8));
         Assert.That(
             bottom.GetComponentsInChildren<BattleActionControlView>(true)
                 .Count(action => action.gameObject.name == "EndTurn"),
             Is.EqualTo(1));
+        Assert.That(
+            bottom.GetComponentsInChildren<BattleActionControlView>(true)
+                .Count(action => action.gameObject.name == "PowerStrike" ||
+                                 action.gameObject.name == "SweepingBlow" ||
+                                 action.gameObject.name == "Rally"),
+            Is.EqualTo(3));
         foreach (BattleActionControlView action in
                  bottom.GetComponentsInChildren<BattleActionControlView>(true))
         {

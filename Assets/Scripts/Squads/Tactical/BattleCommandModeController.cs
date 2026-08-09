@@ -5,7 +5,8 @@ public enum BattleCommandMode
 {
     None,
     Move,
-    Attack
+    Attack,
+    Ability
 }
 
 public sealed class BattleCommandModeController : MonoBehaviour

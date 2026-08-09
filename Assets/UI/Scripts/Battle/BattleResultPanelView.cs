@@ -16,7 +16,7 @@ public sealed class BattleResultPanelView : MonoBehaviour
 
     private bool listenersBound;
 
-    public bool IsVisible => panelRoot != null && panelRoot.activeSelf;
+    public bool IsVisible => panelRoot != null && panelRoot.activeInHierarchy;
     public Button ContinueButton => continueButton;
     public Button RetrySaveButton => retrySaveButton;
     public string SaveStatus => saveStatusLabel != null ? saveStatusLabel.text : string.Empty;
@@ -78,7 +78,12 @@ public sealed class BattleResultPanelView : MonoBehaviour
         }
         ShowSaveState(saveResult);
         if (panelRoot != null)
+        {
+            Transform modalLayer = panelRoot.transform.parent;
+            if (modalLayer != null && !modalLayer.gameObject.activeSelf)
+                modalLayer.gameObject.SetActive(true);
             panelRoot.SetActive(true);
+        }
     }
 
     public void ShowSaveState(SaveOperationResult result)
@@ -110,7 +115,12 @@ public sealed class BattleResultPanelView : MonoBehaviour
         if (retrySaveButton != null)
             retrySaveButton.gameObject.SetActive(false);
         if (panelRoot != null)
+        {
+            Transform modalLayer = panelRoot.transform.parent;
+            if (modalLayer != null && !modalLayer.gameObject.activeSelf)
+                modalLayer.gameObject.SetActive(true);
             panelRoot.SetActive(true);
+        }
     }
 
     public void Hide()

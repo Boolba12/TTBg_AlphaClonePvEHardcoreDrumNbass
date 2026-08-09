@@ -3332,6 +3332,22 @@ PrefabInstance:
       propertyPath: m_TextStyleHashCode
       value: -1183493901
       objectReference: {fileID: 0}
+    - target: {fileID: 7356801972764383373, guid: dee01d6be9166a2428c28c783e683919, type: 3}
+      propertyPath: mapRenderer
+      value: 
+      objectReference: {fileID: 1713191081}
+    - target: {fileID: 7356801972764383373, guid: dee01d6be9166a2428c28c783e683919, type: 3}
+      propertyPath: mapGenerator
+      value: 
+      objectReference: {fileID: 1713191082}
+    - target: {fileID: 7356801972764383373, guid: dee01d6be9166a2428c28c783e683919, type: 3}
+      propertyPath: squadBootstrap
+      value: 
+      objectReference: {fileID: 1726508107}
+    - target: {fileID: 7356801972764383373, guid: dee01d6be9166a2428c28c783e683919, type: 3}
+      propertyPath: cameraController
+      value: 
+      objectReference: {fileID: 2118314402}
     - target: {fileID: 7433265521868305636, guid: dee01d6be9166a2428c28c783e683919, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -4418,6 +4434,9 @@ GameObject:
   - component: {fileID: 1513783157}
   - component: {fileID: 1513783156}
   - component: {fileID: 1513783159}
+  - component: {fileID: 1513783161}
+  - component: {fileID: 1513783160}
+  - component: {fileID: 1513783162}
   m_Layer: 0
   m_Name: BattleTacticalRuntime
   m_TagString: Untagged
@@ -4447,6 +4466,9 @@ MonoBehaviour:
   commands: {fileID: 1513783148}
   attackCommands: {fileID: 1513783156}
   completion: {fileID: 1513783159}
+  abilityService: {fileID: 1513783161}
+  abilityCommands: {fileID: 1513783160}
+  enemyAI: {fileID: 1513783162}
 --- !u!114 &1513783148
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4634,7 +4656,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BattleTurnController
   squadBootstrap: {fileID: 1726508107}
-  autoSkipAITurns: 1
+  autoSkipAITurns: 0
   aiTurnDelay: 0.2
 --- !u!114 &1513783153
 MonoBehaviour:
@@ -4758,12 +4780,87 @@ MonoBehaviour:
   movementCommands: {fileID: 1513783148}
   attackService: {fileID: 1513783157}
   attackCommands: {fileID: 1513783156}
+  abilityService: {fileID: 1513783161}
+  abilityCommands: {fileID: 1513783160}
   battleHud: {fileID: 1139603823}
   squadRepository: {fileID: 1726508108}
   saveSystem: {fileID: 1541910284}
   postBattleRules: {fileID: 11400000, guid: 05af45bae70fcbb4998b701e65e41ff5, type: 2}
   resultPanel: {fileID: 1111511793}
   returnSceneName: first_try
+--- !u!114 &1513783160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1513783146}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eee5d26495cb7104ba038c2d3fbe04cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AbilityCommandController
+  squadBootstrap: {fileID: 1726508107}
+  selectionController: {fileID: 1513783153}
+  turnController: {fileID: 1513783152}
+  movementService: {fileID: 1513783151}
+  commandMode: {fileID: 1513783158}
+  abilityService: {fileID: 1513783161}
+  inputCamera: {fileID: 2118314399}
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  raycastDistance: 10000
+  battleHud: {fileID: 1139603823}
+  abilityControls:
+  - {fileID: 2075221115}
+  - {fileID: 2075221114}
+  - {fileID: 2075221113}
+--- !u!114 &1513783161
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1513783146}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbde0f60f40298d42abc1832482468a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleAbilityService
+  squadBootstrap: {fileID: 1726508107}
+  turnController: {fileID: 1513783152}
+  selectionController: {fileID: 1513783153}
+  movementService: {fileID: 1513783151}
+  attackService: {fileID: 1513783157}
+  completionController: {fileID: 1513783159}
+  abilities:
+  - {fileID: 11400000, guid: c44992641bdcb3845913170d5f97ca3f, type: 2}
+  - {fileID: 11400000, guid: 73e43e1047582ec4a9c1133f8b7ae973, type: 2}
+  - {fileID: 11400000, guid: 10bbd9c7ce0b72746aa820d049039603, type: 2}
+--- !u!114 &1513783162
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1513783146}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6738773a1fb9f7346bc1e0977c856a59, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyTacticalAIController
+  squadBootstrap: {fileID: 1726508107}
+  mapGenerator: {fileID: 1713191082}
+  turnController: {fileID: 1513783152}
+  occupancy: {fileID: 1513783154}
+  movementService: {fileID: 1513783151}
+  attackService: {fileID: 1513783157}
+  abilityService: {fileID: 1513783161}
+  completionController: {fileID: 1513783159}
+  tacticalCamera: {fileID: 2118314402}
+  maximumActionsPerTurn: 8
+  enableDevelopmentLogs: 1
 --- !u!1 &1541910283
 GameObject:
   m_ObjectHideFlags: 0
@@ -5132,9 +5229,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 31671fcc08d3c4f4089de01a5e7f8ed4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapGenerator
-  width: 12
-  height: 12
-  playableCount: 100
+  width: 32
+  height: 32
+  playableCount: 720
   cellSize: 1
   seed: 0
   autoGenerate: 1
@@ -5153,7 +5250,7 @@ MonoBehaviour:
   biomeSwamp: {r: 0.4, g: 0.5, b: 0.3, a: 1}
   biomePlains: {r: 0.7, g: 0.7, b: 0.3, a: 1}
   biomeJungle: {r: 0.15, g: 0.45, b: 0.1, a: 1}
-  generatedPlayableCount: 100
+  generatedPlayableCount: 720
 --- !u!114 &1713191083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5179,9 +5276,9 @@ MonoBehaviour:
   - {fileID: 5753540}
   fallbackSeed: 123
   overrideBattleSize: 1
-  battleWidth: 16
-  battleHeight: 16
-  battlePlayableCount: 180
+  battleWidth: 32
+  battleHeight: 32
+  battlePlayableCount: 720
   enableDiagonalMovement: 1
   bootstrapTimeoutSeconds: 1.5
   battleContextMenuRoot: {fileID: 2008419705}
@@ -5882,6 +5979,39 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1726508109}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2075221113 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3103748385297025040, guid: dee01d6be9166a2428c28c783e683919, type: 3}
+  m_PrefabInstance: {fileID: 1139603819}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a500349cd9d12f543910aa763cc831fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleActionControlView
+--- !u!114 &2075221114 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6881020304661218169, guid: dee01d6be9166a2428c28c783e683919, type: 3}
+  m_PrefabInstance: {fileID: 1139603819}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a500349cd9d12f543910aa763cc831fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleActionControlView
+--- !u!114 &2075221115 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2168863762724919803, guid: dee01d6be9166a2428c28c783e683919, type: 3}
+  m_PrefabInstance: {fileID: 1139603819}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a500349cd9d12f543910aa763cc831fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BattleActionControlView
 --- !u!1 &2118314397
 GameObject:
   m_ObjectHideFlags: 0
@@ -5894,6 +6024,7 @@ GameObject:
   - component: {fileID: 2118314399}
   - component: {fileID: 2118314398}
   - component: {fileID: 2118314401}
+  - component: {fileID: 2118314402}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -6019,6 +6150,26 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &2118314402
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2118314397}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d00bde6c9f86f7e4ba4bdb706605e4a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TacticalCameraController
+  controlledCamera: {fileID: 2118314399}
+  mapGenerator: {fileID: 1713191082}
+  mapRenderer: {fileID: 1713191081}
+  keyboardPanSpeed: 9
+  zoomSensitivity: 4
+  minimumFieldOfView: 32
+  maximumFieldOfView: 70
+  focusMapCenterOnInitialize: 1
 --- !u!1 &2142266580
 GameObject:
   m_ObjectHideFlags: 0

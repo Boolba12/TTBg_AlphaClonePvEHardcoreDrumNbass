@@ -24,6 +24,7 @@ public sealed class BattleTurnController : MonoBehaviour
     public SquadBattleController ActiveSquad { get; private set; }
     public string ActiveSquadId => ActiveSquad?.SquadId;
     public SquadInitiativeOrder InitiativeOrder => initiativeOrder;
+    public bool DevelopmentAutoSkipAIEnabled => autoSkipAITurns;
 
     public event Action OnBattleStarted;
     public event Action<int> OnRoundStarted;

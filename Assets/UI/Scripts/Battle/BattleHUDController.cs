@@ -223,6 +223,29 @@ public sealed class BattleHUDController : MonoBehaviour
 
     public void ClearAttackPreview() => abilityDetails?.ShowUnavailable();
 
+    public void ShowAbilityPreview(
+        BattleAbilityPreview preview,
+        SquadBattleController target,
+        AbilityDefinition definition)
+    {
+        Sprite portrait = target?.Runtime?.Data != null
+            ? squadStatusPresenter?.GetDisplayPortrait(
+                target.Runtime.Data.CommanderPortraitId)
+            : null;
+        abilityDetails?.ShowAbilityPreview(
+            preview,
+            target?.SquadId ?? "Unavailable target",
+            portrait,
+            definition);
+    }
+
+    public void ShowAbilityResult(
+        BattleAbilityResult result,
+        AbilityDefinition definition) =>
+        abilityDetails?.ShowAbilityResult(result, definition);
+
+    public void ClearAbilityPreview() => abilityDetails?.ShowUnavailable();
+
     public void SetBattleCommandsAvailable(bool available)
     {
         actionBar?.SetActionsAvailable(available);

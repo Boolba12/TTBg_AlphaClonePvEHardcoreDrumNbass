@@ -18,6 +18,7 @@ public class MapRenderer : MonoBehaviour
     private Material[] generatedMaterials;
 
     public bool HasMap => mapContainer != null;
+    public double LastRenderMilliseconds { get; private set; }
 
     private void Start()
     {
@@ -43,9 +44,11 @@ public class MapRenderer : MonoBehaviour
     [ContextMenu("Render Map")]
     public void RenderMap()
     {
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         if (mapGenerator == null)
         {
             Debug.LogError("MapRenderer: MapGenerator not assigned!");
+            LastRenderMilliseconds = 0d;
             return;
         }
 
@@ -56,6 +59,9 @@ public class MapRenderer : MonoBehaviour
 
         ClearMap();
         CreateMapVisuals();
+        LastRenderMilliseconds =
+            (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000d /
+            System.Diagnostics.Stopwatch.Frequency;
     }
 
     public void ClearGeneratedMap()
@@ -233,6 +239,83 @@ public class MapRenderer : MonoBehaviour
         }
 
         return found;
+    }
+
+    /// <summary>
+    /// Resolves the nearest potential grid cell with a bounded 3x3 lookup.
+    /// Unlike TryGetClosestPlayableCell, a non-playable visual hole remains invalid.
+    /// </summary>
+    public bool TryGetGridCell(
+        Vector3 worldPosition,
+        out Vector2Int cell,
+        bool requirePlayable = true)
+    {
+        cell = default;
+        if (mapGenerator == null || !mapGenerator.HasGeneratedData ||
+            mapGenerator.Width <= 0 || mapGenerator.Height <= 0 ||
+            mapGenerator.cellSize <= 0f)
+        {
+            return false;
+        }
+
+        Transform space = mapContainer != null ? mapContainer.transform : transform;
+        Vector3 local = space.InverseTransformPoint(worldPosition);
+        int estimatedX = Mathf.FloorToInt(local.x / mapGenerator.cellSize);
+        int estimatedY = Mathf.FloorToInt(local.z / mapGenerator.cellSize);
+        float bestDistance = float.MaxValue;
+        bool found = false;
+        for (int x = estimatedX - 1; x <= estimatedX + 1; x++)
+        {
+            for (int y = estimatedY - 1; y <= estimatedY + 1; y++)
+            {
+                if (x < 0 || y < 0 || x >= mapGenerator.Width ||
+                    y >= mapGenerator.Height)
+                {
+                    continue;
+                }
+
+                float distance = (GetCellWorldCenter(x, y) - worldPosition).sqrMagnitude;
+                if (distance >= bestDistance)
+                    continue;
+                bestDistance = distance;
+                cell = new Vector2Int(x, y);
+                found = true;
+            }
+        }
+
+        return found && (!requirePlayable || mapGenerator.GetIsPlayable(cell.x, cell.y));
+    }
+
+    public bool TryGetGeneratedWorldBounds(out Bounds bounds, bool playableOnly = true)
+    {
+        bounds = default;
+        if (mapGenerator == null || !mapGenerator.HasGeneratedData)
+            return false;
+
+        bool found = false;
+        for (int x = 0; x < mapGenerator.Width; x++)
+        {
+            for (int y = 0; y < mapGenerator.Height; y++)
+            {
+                if (playableOnly && !mapGenerator.GetIsPlayable(x, y))
+                    continue;
+                Vector3 center = GetCellWorldCenter(x, y);
+                if (!found)
+                {
+                    bounds = new Bounds(center, Vector3.zero);
+                    found = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(center);
+                }
+            }
+        }
+
+        if (!found)
+            return false;
+        bounds.Expand(new Vector3(mapGenerator.cellSize, 0f, mapGenerator.cellSize));
+        return true;
     }
 
     private int GetSubmeshIndex(int x, int y, bool isStart)

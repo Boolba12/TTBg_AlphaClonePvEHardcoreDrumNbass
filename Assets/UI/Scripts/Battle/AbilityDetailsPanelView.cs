@@ -12,6 +12,7 @@ public sealed class AbilityDetailsPanelView : MonoBehaviour
 
     public bool HasDetails { get; private set; }
     public BattleAttackPreview CurrentAttackPreview { get; private set; }
+    public BattleAbilityPreview CurrentAbilityPreview { get; private set; }
     public string LastResultFeedback { get; private set; }
     public Sprite DisplayedPortrait => icon != null ? icon.sprite : null;
 
@@ -39,6 +40,7 @@ public sealed class AbilityDetailsPanelView : MonoBehaviour
     {
         HasDetails = false;
         CurrentAttackPreview = default;
+        CurrentAbilityPreview = default;
         LastResultFeedback = null;
         if (icon != null)
             icon.gameObject.SetActive(false);
@@ -99,6 +101,86 @@ public sealed class AbilityDetailsPanelView : MonoBehaviour
             : result.Critical
                 ? $"CRITICAL • {result.AppliedDamage} damage"
                 : $"HIT • {result.AppliedDamage} damage";
+        if (descriptionLabel != null)
+            descriptionLabel.text = LastResultFeedback;
+    }
+
+    public void ShowAbilityPreview(
+        BattleAbilityPreview preview,
+        string targetLabel,
+        Sprite targetPortrait,
+        AbilityDefinition definition)
+    {
+        CurrentAbilityPreview = preview;
+        CurrentAttackPreview = preview.AttackPreview;
+        LastResultFeedback = null;
+        HasDetails = true;
+        if (icon != null)
+        {
+            icon.sprite = targetPortrait != null
+                ? targetPortrait
+                : definition?.Icon != null
+                    ? definition.Icon
+                    : theme?.DevelopmentPortraitFallback;
+            icon.preserveAspect = true;
+            icon.gameObject.SetActive(icon.sprite != null);
+        }
+        if (titleLabel != null)
+            titleLabel.text = $"{definition?.DisplayName ?? "Ability"} → {targetLabel}";
+        if (descriptionLabel != null)
+        {
+            if (!preview.IsValid)
+            {
+                descriptionLabel.text = preview.Validation.Reason;
+            }
+            else if (definition != null &&
+                     definition.EffectType == BattleAbilityEffectType.RestoreMorale)
+            {
+                descriptionLabel.text =
+                    $"{definition.Description}\n" +
+                    $"Morale  {preview.CurrentMorale:0.#} / {preview.MaximumMorale:0.#}\n" +
+                    $"Restore  +{preview.PredictedMoraleRestore:0.#}\n" +
+                    $"{preview.ActionPointCost} AP  •  Cooldown {definition.CooldownRounds}";
+            }
+            else
+            {
+                BattleAttackPreview attack = preview.AttackPreview;
+                string areaWarning = definition != null &&
+                                     definition.DamageDistribution == SquadDamageDistribution.Area
+                    ? "\nArea: damage propagates through this formation"
+                    : string.Empty;
+                descriptionLabel.text =
+                    $"{definition?.Description}\n" +
+                    $"HP  {attack.TargetCurrentHealth} / {attack.TargetMaximumHealth}\n" +
+                    $"Warriors  {attack.TargetLivingWarriors}\n" +
+                    $"Hit  {UIStatFormatter.FormatPercentage(attack.HitChance)}\n" +
+                    $"Critical  {UIStatFormatter.FormatPercentage(attack.CriticalChance)}\n" +
+                    $"Damage  {attack.PredictedDamage}  (critical {attack.PredictedCriticalDamage})\n" +
+                    $"{preview.ActionPointCost} AP  •  {attack.DamageType}  •  " +
+                    $"Cooldown {definition?.CooldownRounds}{areaWarning}";
+            }
+        }
+        if (emptyStateLabel != null)
+            emptyStateLabel.gameObject.SetActive(false);
+    }
+
+    public void ShowAbilityResult(BattleAbilityResult result, AbilityDefinition definition)
+    {
+        if (result == null || !result.WasExecuted)
+            return;
+        if (definition != null &&
+            definition.EffectType == BattleAbilityEffectType.RestoreMorale)
+        {
+            LastResultFeedback = $"RALLY  +{result.MoraleRestored:0.#} morale";
+        }
+        else
+        {
+            LastResultFeedback = !result.Hit
+                ? "MISS"
+                : result.Critical
+                    ? $"CRITICAL • {result.Damage} damage"
+                    : $"HIT • {result.Damage} damage";
+        }
         if (descriptionLabel != null)
             descriptionLabel.text = LastResultFeedback;
     }

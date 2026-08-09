@@ -45,6 +45,11 @@ public class MapGenerator : MonoBehaviour
     public int GenerationVersion { get; private set; }
 
     public bool HasGeneratedData => isPlayable != null;
+    public int Width => width;
+    public int Height => height;
+    public int PotentialCellCount => Mathf.Max(0, width) * Mathf.Max(0, height);
+    public int PlayableCellCount => generatedPlayableCount;
+    public double LastGenerationMilliseconds { get; private set; }
 
     private void Start()
     {
@@ -63,8 +68,12 @@ public class MapGenerator : MonoBehaviour
     [ContextMenu("Generate Map")]
     public void Generate()
     {
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         if (width <= 0 || height <= 0)
+        {
+            LastGenerationMilliseconds = 0d;
             return;
+        }
 
         MapInteriorHoleUtility.InvalidateCache(this);
         GenerationVersion++;
@@ -115,6 +124,9 @@ public class MapGenerator : MonoBehaviour
         NormalizePlayableCount(playableCount);
 
         generatedPlayableCount = CountPlayable();
+        LastGenerationMilliseconds =
+            (System.Diagnostics.Stopwatch.GetTimestamp() - started) * 1000d /
+            System.Diagnostics.Stopwatch.Frequency;
     }
 
     private void GenerateBiomeMap()

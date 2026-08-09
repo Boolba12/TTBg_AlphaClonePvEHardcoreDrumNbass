@@ -95,13 +95,15 @@ public sealed class BattleAttackService : MonoBehaviour
         SquadBattleController attacker,
         AttackDefinition definition = null,
         bool requireSelected = false,
-        bool requireTargetInRange = true)
+        bool requireTargetInRange = true,
+        BattleCommandAuthority authority = BattleCommandAuthority.HumanInput)
     {
         definition ??= basicAttack;
         BattleAttackValidationResult validation = ValidateAttacker(
             attacker,
             definition,
-            requireSelected);
+            requireSelected,
+            authority);
         if (!validation.IsValid || !requireTargetInRange)
             return validation;
 
@@ -120,13 +122,15 @@ public sealed class BattleAttackService : MonoBehaviour
     public BattleAttackValidationResult ValidateCommand(
         SquadBattleController attacker,
         SquadBattleController target,
-        AttackDefinition definition = null)
+        AttackDefinition definition = null,
+        BattleCommandAuthority authority = BattleCommandAuthority.HumanInput)
     {
         definition ??= basicAttack;
         BattleAttackValidationResult attackerValidation = ValidateAttacker(
             attacker,
             definition,
-            true);
+            true,
+            authority);
         if (!attackerValidation.IsValid)
             return attackerValidation;
         if (!squadBootstrap.SpawnedControllers.Contains(target))
@@ -141,10 +145,15 @@ public sealed class BattleAttackService : MonoBehaviour
     public BattleAttackPreview PreviewAttack(
         SquadBattleController attacker,
         SquadBattleController target,
-        AttackDefinition definition = null)
+        AttackDefinition definition = null,
+        BattleCommandAuthority authority = BattleCommandAuthority.HumanInput)
     {
         definition ??= basicAttack;
-        BattleAttackValidationResult validation = ValidateCommand(attacker, target, definition);
+        BattleAttackValidationResult validation = ValidateCommand(
+            attacker,
+            target,
+            definition,
+            authority);
         if (attacker == null || target == null || definition == null || calculator == null)
         {
             return new BattleAttackPreview(
@@ -199,11 +208,16 @@ public sealed class BattleAttackService : MonoBehaviour
         SquadBattleController attacker,
         SquadBattleController target,
         out BattleAttackResult result,
-        AttackDefinition definition = null)
+        AttackDefinition definition = null,
+        BattleCommandAuthority authority = BattleCommandAuthority.HumanInput)
     {
         definition ??= basicAttack;
         result = CreateResult(attacker, target, definition);
-        BattleAttackValidationResult validation = ValidateCommand(attacker, target, definition);
+        BattleAttackValidationResult validation = ValidateCommand(
+            attacker,
+            target,
+            definition,
+            authority);
         if (!validation.IsValid)
         {
             result.FailureReason = validation.FailureReason;
@@ -290,7 +304,8 @@ public sealed class BattleAttackService : MonoBehaviour
     private BattleAttackValidationResult ValidateAttacker(
         SquadBattleController attacker,
         AttackDefinition definition,
-        bool requireSelected)
+        bool requireSelected,
+        BattleCommandAuthority authority)
     {
         if (!IsInitialized || targetingService == null || calculator == null)
         {
@@ -346,19 +361,36 @@ public sealed class BattleAttackService : MonoBehaviour
                 BattleAttackFailureReason.AttackerNotActive,
                 "Selected squad is not active.");
         }
-        if (attacker.Side != BattleSide.Player)
+        if (authority == BattleCommandAuthority.HumanInput &&
+            attacker.Side != BattleSide.Player)
         {
             return BattleAttackValidationResult.Reject(
                 BattleAttackFailureReason.AttackerNotPlayerSide,
                 "Only the Player-side squad accepts Human attack commands.");
         }
-        if (attacker.ControlType != SquadControlType.Human)
+        if (authority == BattleCommandAuthority.HumanInput &&
+            attacker.ControlType != SquadControlType.Human)
         {
             return BattleAttackValidationResult.Reject(
                 BattleAttackFailureReason.AttackerNotHumanControlled,
                 "AI-controlled squads do not accept Human attack commands.");
         }
-        if (requireSelected && selectionController.SelectedSquad != attacker)
+        if (authority == BattleCommandAuthority.TacticalAI &&
+            attacker.ControlType != SquadControlType.AI)
+        {
+            return BattleAttackValidationResult.Reject(
+                BattleAttackFailureReason.AttackerNotHumanControlled,
+                "Only an AI-controlled squad accepts tactical AI attack commands.");
+        }
+        if (authority == BattleCommandAuthority.TacticalAI &&
+            attacker.Side != BattleSide.Enemy)
+        {
+            return BattleAttackValidationResult.Reject(
+                BattleAttackFailureReason.AttackerNotPlayerSide,
+                "Enemy Tactical AI only controls Enemy-side squads in AI v0.");
+        }
+        if (authority == BattleCommandAuthority.HumanInput && requireSelected &&
+            selectionController.SelectedSquad != attacker)
         {
             return BattleAttackValidationResult.Reject(
                 BattleAttackFailureReason.AttackerNotSelected,

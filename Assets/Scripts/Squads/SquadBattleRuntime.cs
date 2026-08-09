@@ -131,6 +131,23 @@ public sealed class SquadBattleRuntime
         return loss;
     }
 
+    public float TryRestoreMorale(float requestedRestore)
+    {
+        if (!CanAct || requestedRestore <= 0f)
+            return 0f;
+
+        float maximum = Math.Max(0f, Stats.Morale);
+        float before = Math.Clamp(State.currentMorale, 0f, maximum);
+        float after = Math.Min(maximum, before + requestedRestore);
+        float restored = Math.Max(0f, after - before);
+        if (restored <= 0f)
+            return 0f;
+
+        State.currentMorale = after;
+        OnMoraleChanged?.Invoke(State.currentMorale);
+        return restored;
+    }
+
     public bool TryIncreaseUsedPrimaryStat(PrimaryStatType statType)
     {
         if (!CanAct || randomValue() >= Stats.ExperienceMultiplier)

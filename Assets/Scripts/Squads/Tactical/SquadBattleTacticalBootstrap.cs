@@ -13,6 +13,9 @@ public sealed class SquadBattleTacticalBootstrap : MonoBehaviour
     [SerializeField] private MovementCommandController commands;
     [SerializeField] private AttackCommandController attackCommands;
     [SerializeField] private BattleCompletionController completion;
+    [SerializeField] private BattleAbilityService abilityService;
+    [SerializeField] private AbilityCommandController abilityCommands;
+    [SerializeField] private EnemyTacticalAIController enemyAI;
 
     public bool HasInitialized { get; private set; }
     public string FailureReason { get; private set; }
@@ -28,7 +31,10 @@ public sealed class SquadBattleTacticalBootstrap : MonoBehaviour
         BattleAttackService configuredAttackService,
         MovementCommandController commandController,
         AttackCommandController configuredAttackCommands,
-        BattleCompletionController configuredCompletion = null)
+        BattleCompletionController configuredCompletion = null,
+        BattleAbilityService configuredAbilityService = null,
+        AbilityCommandController configuredAbilityCommands = null,
+        EnemyTacticalAIController configuredEnemyAI = null)
     {
         squadBootstrap = bootstrap;
         occupancy = occupancyService;
@@ -40,6 +46,9 @@ public sealed class SquadBattleTacticalBootstrap : MonoBehaviour
         commands = commandController;
         attackCommands = configuredAttackCommands;
         completion = configuredCompletion;
+        abilityService = configuredAbilityService;
+        abilityCommands = configuredAbilityCommands;
+        enemyAI = configuredEnemyAI;
     }
 
     private IEnumerator Start()
@@ -110,11 +119,36 @@ public sealed class SquadBattleTacticalBootstrap : MonoBehaviour
             Fail("BattleCompletionController could not initialize.");
             yield break;
         }
+        if ((abilityService == null) != (abilityCommands == null))
+        {
+            Fail("Ability service and command controller must be configured together.");
+            yield break;
+        }
+        if (abilityService != null && !abilityService.Initialize())
+        {
+            Fail("BattleAbilityService could not initialize.");
+            yield break;
+        }
+        if (abilityCommands != null && !abilityCommands.Initialize())
+        {
+            Fail("AbilityCommandController could not bind production commands.");
+            yield break;
+        }
+        if (enemyAI != null && !enemyAI.Initialize())
+        {
+            Fail("EnemyTacticalAIController could not bind the production AI turn pipeline.");
+            yield break;
+        }
+        if (enemyAI == null && !turns.DevelopmentAutoSkipAIEnabled)
+        {
+            Fail("AI auto-skip is disabled but no EnemyTacticalAIController is configured.");
+            yield break;
+        }
 
         HasInitialized = true;
         SuccessfulInitializationCount++;
         Debug.Log(
-            "SquadBattleTacticalBootstrap: selection, turns, occupancy, movement, attack, and battle lifecycle initialized once.",
+            "SquadBattleTacticalBootstrap: selection, turns, occupancy, movement, attack, abilities, AI, and battle lifecycle initialized once.",
             this);
     }
 

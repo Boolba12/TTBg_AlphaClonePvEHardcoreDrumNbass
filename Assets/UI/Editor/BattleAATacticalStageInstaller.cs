@@ -501,6 +501,9 @@ public static class BattleAATacticalStageInstaller
         MovementCommandController commands = GetOrAdd<MovementCommandController>(root);
         AttackCommandController attackCommands = GetOrAdd<AttackCommandController>(root);
         SquadBattleTacticalBootstrap tactical = GetOrAdd<SquadBattleTacticalBootstrap>(root);
+        BattleCompletionController completion = root.GetComponent<BattleCompletionController>();
+        BattleAbilityService abilityService = root.GetComponent<BattleAbilityService>();
+        AbilityCommandController abilityCommands = root.GetComponent<AbilityCommandController>();
 
         BattleActionControlView moveAction = FindAction(hud, "Move");
         BattleActionControlView attackAction = FindAction(hud, "Attack");
@@ -542,7 +545,10 @@ public static class BattleAATacticalStageInstaller
             commandMode,
             attackService,
             commands,
-            attackCommands);
+            attackCommands,
+            completion,
+            abilityService,
+            abilityCommands);
         hud.ConfigureRuntimeState(selection, turns);
 
         EditorUtility.SetDirty(squadBootstrap);

@@ -58,6 +58,8 @@ public static class BattleLifecycleStageInstaller
         BattleAttackService attacks = RequireOnRoot<BattleAttackService>(tacticalRoot);
         MovementCommandController movementCommands = RequireOnRoot<MovementCommandController>(tacticalRoot);
         AttackCommandController attackCommands = RequireOnRoot<AttackCommandController>(tacticalRoot);
+        BattleAbilityService abilityService = tacticalRoot.GetComponent<BattleAbilityService>();
+        AbilityCommandController abilityCommands = tacticalRoot.GetComponent<AbilityCommandController>();
         BattleResultPanelView panel = EnsureResultPanel(hud);
         BattleCompletionController completion = GetOrAdd<BattleCompletionController>(tacticalRoot);
         completion.Configure(
@@ -74,6 +76,7 @@ public static class BattleLifecycleStageInstaller
             rules,
             panel,
             "first_try");
+        completion.ConfigureAbilities(abilityService, abilityCommands);
         tactical.Configure(
             bootstrap,
             occupancy,
@@ -84,7 +87,9 @@ public static class BattleLifecycleStageInstaller
             attacks,
             movementCommands,
             attackCommands,
-            completion);
+            completion,
+            abilityService,
+            abilityCommands);
 
         EditorUtility.SetDirty(panel);
         EditorUtility.SetDirty(completion);

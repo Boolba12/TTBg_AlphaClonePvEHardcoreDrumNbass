@@ -63,9 +63,10 @@ public sealed class SquadMovementService : MonoBehaviour
     public bool TryBuildPlan(
         SquadBattleController controller,
         Vector2Int destination,
-        out SquadMovementPlan plan)
+        out SquadMovementPlan plan,
+        BattleCommandAuthority authority = BattleCommandAuthority.HumanInput)
     {
-        string reason = ValidateCommandSource(controller);
+        string reason = ValidateCommandSource(controller, authority);
         if (reason != null)
         {
             plan = new SquadMovementPlan(
@@ -117,13 +118,16 @@ public sealed class SquadMovementService : MonoBehaviour
         return plan.IsValid;
     }
 
-    public bool TryMove(SquadMovementPlan requestedPlan)
+    public bool TryMove(
+        SquadMovementPlan requestedPlan,
+        BattleCommandAuthority authority = BattleCommandAuthority.HumanInput)
     {
         if (requestedPlan == null || !requestedPlan.IsValid || IsMoving ||
             !TryBuildPlan(
                 requestedPlan.Squad,
                 requestedPlan.Destination,
-                out SquadMovementPlan currentPlan) ||
+                out SquadMovementPlan currentPlan,
+                authority) ||
             !occupancy.TryReserve(currentPlan.Squad, currentPlan.Destination))
         {
             OnMovementFailed?.Invoke(
@@ -208,7 +212,9 @@ public sealed class SquadMovementService : MonoBehaviour
             OnMovementCompleted?.Invoke(plan);
     }
 
-    private string ValidateCommandSource(SquadBattleController controller)
+    private string ValidateCommandSource(
+        SquadBattleController controller,
+        BattleCommandAuthority authority)
     {
         if (!IsInitialized)
             return "Movement service is not initialized.";
@@ -223,8 +229,16 @@ public sealed class SquadMovementService : MonoBehaviour
         }
         if (!controller.CanAct)
             return "Defeated squads cannot move.";
-        if (controller.ControlType != SquadControlType.Human)
-            return "Only a Human-controlled squad accepts movement commands.";
+        if (authority == BattleCommandAuthority.HumanInput &&
+            controller.ControlType != SquadControlType.Human)
+        {
+            return "Only a Human-controlled squad accepts Human movement commands.";
+        }
+        if (authority == BattleCommandAuthority.TacticalAI &&
+            controller.ControlType != SquadControlType.AI)
+        {
+            return "Only an AI-controlled squad accepts tactical AI movement commands.";
+        }
         if (!turnController.IsActive(controller))
             return "Selected squad is not the active squad.";
         if (controller.Runtime.State.currentActionPoints <= 0)

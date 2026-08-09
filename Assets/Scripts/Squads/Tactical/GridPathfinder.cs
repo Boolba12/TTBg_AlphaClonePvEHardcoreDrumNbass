@@ -92,4 +92,77 @@ public static class GridPathfinder
         path.Reverse();
         return true;
     }
+
+    public static bool TryBuildPathToNearest(
+        MapGenerator mapGenerator,
+        Vector2Int start,
+        bool allowDiagonal,
+        Func<Vector2Int, bool> isDestination,
+        Func<Vector2Int, bool> canEnter,
+        int maximumCost,
+        out List<Vector2Int> path,
+        out Vector2Int destination)
+    {
+        path = new List<Vector2Int>();
+        destination = start;
+        if (mapGenerator == null || !mapGenerator.HasGeneratedData ||
+            !mapGenerator.GetIsPlayable(start.x, start.y) ||
+            isDestination == null || maximumCost < 0)
+        {
+            return false;
+        }
+
+        Queue<Vector2Int> frontier = new Queue<Vector2Int>();
+        Dictionary<Vector2Int, Vector2Int> cameFrom =
+            new Dictionary<Vector2Int, Vector2Int>();
+        Dictionary<Vector2Int, int> costs = new Dictionary<Vector2Int, int>
+        {
+            [start] = 0
+        };
+        frontier.Enqueue(start);
+
+        Vector2Int[] directions = allowDiagonal ? AllDirections : CardinalDirections;
+        bool found = false;
+        while (frontier.Count > 0)
+        {
+            Vector2Int current = frontier.Dequeue();
+            int currentCost = costs[current];
+            if (isDestination(current))
+            {
+                destination = current;
+                found = true;
+                break;
+            }
+            if (currentCost >= maximumCost)
+                continue;
+
+            foreach (Vector2Int direction in directions)
+            {
+                Vector2Int next = current + direction;
+                if (costs.ContainsKey(next) ||
+                    !mapGenerator.GetIsPlayable(next.x, next.y) ||
+                    (canEnter != null && !canEnter(next)))
+                {
+                    continue;
+                }
+
+                costs[next] = currentCost + 1;
+                cameFrom[next] = current;
+                frontier.Enqueue(next);
+            }
+        }
+
+        if (!found)
+            return false;
+
+        Vector2Int step = destination;
+        path.Add(step);
+        while (step != start)
+        {
+            step = cameFrom[step];
+            path.Add(step);
+        }
+        path.Reverse();
+        return true;
+    }
 }

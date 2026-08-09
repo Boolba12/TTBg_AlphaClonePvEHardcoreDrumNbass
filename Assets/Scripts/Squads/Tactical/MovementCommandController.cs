@@ -23,6 +23,7 @@ public sealed class MovementCommandController : MonoBehaviour
     private bool hasPreviewCell;
     private SquadBattleRuntime subscribedActionPointRuntime;
     private bool battleCommandsEnabled = true;
+    private readonly RaycastHit[] mapHitBuffer = new RaycastHit[24];
 
     public bool IsInitialized { get; private set; }
     public bool IsMovementTargeting =>
@@ -217,23 +218,29 @@ public sealed class MovementCommandController : MonoBehaviour
             return false;
 
         Ray ray = camera.ScreenPointToRay(Mouse.current.position.ReadValue());
-        RaycastHit[] hits = Physics.RaycastAll(ray, 10000f, ~0, QueryTriggerInteraction.Collide);
+        int hitCount = Physics.RaycastNonAlloc(
+            ray,
+            mapHitBuffer,
+            10000f,
+            ~0,
+            QueryTriggerInteraction.Collide);
         float nearestDistance = float.MaxValue;
         bool found = false;
         Vector3 worldPoint = default;
-        for (int i = 0; i < hits.Length; i++)
+        for (int i = 0; i < hitCount; i++)
         {
-            Transform hitTransform = hits[i].collider.transform;
+            RaycastHit hit = mapHitBuffer[i];
+            Transform hitTransform = hit.collider.transform;
             bool isMap = hitTransform == mapRenderer.transform ||
                          hitTransform.IsChildOf(mapRenderer.transform);
-            if (!isMap || hits[i].distance >= nearestDistance)
+            if (!isMap || hit.distance >= nearestDistance)
                 continue;
-            nearestDistance = hits[i].distance;
-            worldPoint = hits[i].point;
+            nearestDistance = hit.distance;
+            worldPoint = hit.point;
             found = true;
         }
 
-        return found && mapRenderer.TryGetClosestPlayableCell(worldPoint, out cell);
+        return found && mapRenderer.TryGetGridCell(worldPoint, out cell, true);
     }
 
     private bool TryGetCommandSquad(
