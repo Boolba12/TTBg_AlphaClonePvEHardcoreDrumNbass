@@ -72,23 +72,8 @@ public sealed class SaveService
         operationInProgress = true;
         try
         {
-            data.formatVersion = CurrentFormatVersion;
+            CaptureRegisteredState(data, excludedSaveKeys);
             data.lastSavedUtc = DateTime.UtcNow.ToString("O");
-            data.systems.Clear();
-
-            foreach (ISaveable saveable in saveables.Values)
-            {
-                if (excludedSaveKeys != null && excludedSaveKeys.Contains(saveable.SaveKey))
-                    continue;
-                if (saveable is ICoreSaveDataContributor contributor)
-                    contributor.CaptureCoreData(data);
-
-                data.systems.Add(new SystemSaveData
-                {
-                    key = saveable.SaveKey,
-                    json = saveable.CaptureState()
-                });
-            }
 
             return storage.Write(slotId, data);
         }
@@ -99,6 +84,51 @@ public sealed class SaveService
         finally
         {
             operationInProgress = false;
+        }
+    }
+
+    public SaveOperationResult CaptureForSceneTransition(GameSaveData data)
+    {
+        if (operationInProgress)
+            return SaveOperationResult.Fail("Another save operation is already running.");
+        if (data == null)
+            return SaveOperationResult.Fail("Save data is null.");
+
+        operationInProgress = true;
+        try
+        {
+            CaptureRegisteredState(data, null);
+            return SaveOperationResult.Ok();
+        }
+        catch (Exception exception)
+        {
+            return SaveOperationResult.Fail(
+                $"Scene-transition capture failed: {exception.Message}");
+        }
+        finally
+        {
+            operationInProgress = false;
+        }
+    }
+
+    private void CaptureRegisteredState(
+        GameSaveData data,
+        ISet<string> excludedSaveKeys)
+    {
+        data.formatVersion = CurrentFormatVersion;
+        data.systems.Clear();
+        foreach (ISaveable saveable in saveables.Values)
+        {
+            if (excludedSaveKeys != null && excludedSaveKeys.Contains(saveable.SaveKey))
+                continue;
+            if (saveable is ICoreSaveDataContributor contributor)
+                contributor.CaptureCoreData(data);
+
+            data.systems.Add(new SystemSaveData
+            {
+                key = saveable.SaveKey,
+                json = saveable.CaptureState()
+            });
         }
     }
 

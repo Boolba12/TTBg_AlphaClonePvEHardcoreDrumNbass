@@ -139,8 +139,21 @@ public class PlayerController : UnitController
         if (mapRenderer == null || !mapRenderer.TryGetClosestPlayableCell(hit.point, out Vector2Int targetCell))
             return;
 
-        if (!TryBuildPath(CurrentCell, targetCell, out List<Vector2Int> path))
-            return;
+        TryRequestPathToCell(targetCell);
+    }
+
+    public bool TryRequestPathToCell(Vector2Int targetCell)
+    {
+        if (IsMovementBusy || (useTurnSystem && !isPlayerTurn) ||
+            mapGenerator == null || mapRenderer == null ||
+            !mapGenerator.HasGeneratedData ||
+            targetCell.x < 0 || targetCell.x >= mapGenerator.width ||
+            targetCell.y < 0 || targetCell.y >= mapGenerator.height ||
+            !mapGenerator.GetIsPlayable(targetCell.x, targetCell.y) ||
+            !TryBuildPath(CurrentCell, targetCell, out List<Vector2Int> path))
+        {
+            return false;
+        }
 
         if (enemyController != null && targetCell == enemyController.CurrentCell && path.Count > 1)
         {
@@ -152,10 +165,11 @@ public class PlayerController : UnitController
         if (useTurnSystem)
         {
             HandleTurnBasedPathClick(targetCell, path);
-            return;
+            return true;
         }
 
         StartMoveSequence(path);
+        return true;
     }
 
     private void HandleTurnBasedPathClick(Vector2Int targetCell, List<Vector2Int> path)

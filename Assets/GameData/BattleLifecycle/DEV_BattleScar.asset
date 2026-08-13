@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 137e0fcbf1df453e9c9287790a23df62, type: 3}
   m_Name: DEV_BattleScar
   m_EditorClassIdentifier: Assembly-CSharp::PersistentDebuffDefinition
   stableId: DEV_BattleScar

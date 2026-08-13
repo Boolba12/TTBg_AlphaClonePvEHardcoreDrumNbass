@@ -17,6 +17,7 @@ public sealed class SaveSystemBehaviour : MonoBehaviour
     public string SaveDirectory => System.IO.Path.Combine(Application.persistentDataPath, "Saves");
     public GameSaveData CurrentData => currentData;
     public SaveOperationResult LastOperationResult { get; private set; }
+    public bool StartupRestoreCompleted { get; private set; }
 
     private void Awake()
     {
@@ -47,11 +48,15 @@ public sealed class SaveSystemBehaviour : MonoBehaviour
     private IEnumerator Start()
     {
         if (!PendingSaveLoadContext.HasData)
+        {
+            StartupRestoreCompleted = true;
             yield break;
+        }
 
         yield return null;
         currentData = PendingSaveLoadContext.Take();
         Report(service.Restore(currentData), "load");
+        StartupRestoreCompleted = true;
     }
 
     public void NewGame()
@@ -124,6 +129,13 @@ public sealed class SaveSystemBehaviour : MonoBehaviour
             EnsureCurrentData();
         if (currentData == null)
             return false;
+        SaveOperationResult capture = service.CaptureForSceneTransition(currentData);
+        if (!capture.Success)
+        {
+            LastOperationResult = capture;
+            Debug.LogError($"SaveSystem: scene-transition capture failed. {capture.Error}");
+            return false;
+        }
         PendingSaveLoadContext.Set(currentData);
         return true;
     }

@@ -16,12 +16,61 @@ public sealed class SquadBattleBootstrapIntegrationTests
     public void TearDown()
     {
         BattleSquadSelectionContext.Clear();
+        BattleEncounterContext.Clear();
         for (int i = cleanup.Count - 1; i >= 0; i--)
         {
             if (cleanup[i] != null)
                 Object.DestroyImmediate(cleanup[i]);
         }
         cleanup.Clear();
+    }
+
+    [Test]
+    public void PersistentEncounterSelectionResolvesExactRepositorySquadByStableId()
+    {
+        TestSetup setup = CreateSetup();
+        SquadData alpha = CreateSquad("persistent-alpha", 2, 7);
+        SquadData beta = CreateSquad("persistent-beta", 3, 12);
+        SquadData enemy = CreateSquad("configured-encounter-enemy", 2, 8);
+        Assert.That(setup.Repository.TryAddSquad(alpha, out string alphaError), Is.True, alphaError);
+        Assert.That(setup.Repository.TryAddSquad(beta, out string betaError), Is.True, betaError);
+        setup.Bootstrap.Configure(
+            setup.ControllerPrefab,
+            setup.Container,
+            setup.Repository,
+            true,
+            CreateSquad("unused-dev-player", 1, 1),
+            enemy,
+            false);
+        BattleEncounterContext.SetEncounterData(
+            44,
+            new Vector2Int(2, 3),
+            new Vector2Int(3, 3),
+            default,
+            default,
+            EncounterInitiator.Player,
+            10);
+        Assert.That(
+            BattleSquadSelectionContext.SetPersistentEncounterSelection(
+                beta.Id,
+                BattleEncounterContext.EncounterId,
+                true),
+            Is.True);
+
+        Assert.That(
+            setup.Bootstrap.InitializeSquads(
+                setup.MapGenerator,
+                setup.MapRenderer,
+                setup.PlayerCell,
+                setup.EnemyCell),
+            Is.True);
+
+        SquadBattleController player = setup.Bootstrap.SpawnedControllers.Single(
+            controller => controller.Side == BattleSide.Player);
+        Assert.That(player.SquadId, Is.EqualTo(beta.Id));
+        Assert.That(player.Runtime.Data, Is.SameAs(beta));
+        Assert.That(player.SquadId, Is.Not.EqualTo(alpha.Id));
+        Assert.That(BattleSquadSelectionContext.HasSelection, Is.False);
     }
 
     [Test]
@@ -505,6 +554,7 @@ public sealed class SquadBattleBootstrapIntegrationTests
         return new TestSetup
         {
             Bootstrap = bootstrap,
+            ControllerPrefab = controller,
             Repository = repository,
             Container = container,
             MapGenerator = generator,
@@ -634,6 +684,7 @@ public sealed class SquadBattleBootstrapIntegrationTests
     private sealed class TestSetup
     {
         public SquadBattleBootstrap Bootstrap;
+        public SquadBattleController ControllerPrefab;
         public SquadSaveParticipant Repository;
         public Transform Container;
         public MapGenerator MapGenerator;

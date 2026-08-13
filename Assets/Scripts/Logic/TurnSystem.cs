@@ -1,7 +1,6 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.Linq;
 
 public class TurnSystem : MonoBehaviour
 {
@@ -11,6 +10,7 @@ public class TurnSystem : MonoBehaviour
     public CameraFollow cameraFollow;
     [SerializeField] private SquadSaveParticipant squadRepository;
     [SerializeField] private SaveSystemBehaviour saveSystem;
+    [SerializeField] private PreBattlePreparationController preBattlePreparationController;
 
     [Header("Timing")]
     [Range(0f, 1f)] public float cameraReturnDelay = 0.1f;
@@ -23,11 +23,14 @@ public class TurnSystem : MonoBehaviour
 
     private bool enemyTurnRunning;
     private bool battleLoadingTriggered;
+    private bool preBattlePreparationOpen;
     private bool isSubscribedToPlayer;
     private Vector2Int lastResolvedPlayerCell;
     private bool hasLastResolvedPlayerCell;
 
     public bool IsEnemyTurnRunning => enemyTurnRunning;
+    public bool IsPreBattlePreparationOpen => preBattlePreparationOpen;
+    public bool IsBattleLoadingTriggered => battleLoadingTriggered;
     public string CurrentTurnLabel => enemyTurnRunning ? "Enemy" : "Player";
 
     private void Awake()
@@ -75,8 +78,7 @@ public class TurnSystem : MonoBehaviour
         TryAutoAssignReferences();
         HookPlayerEvents();
 
-        if (enemyTurnRunning || battleLoadingTriggered){
-            Debug.Log("TurnSystem: Enemy turn running or battle loading triggered, skipping update.");
+        if (enemyTurnRunning || battleLoadingTriggered || preBattlePreparationOpen){
             return;}
 
         if (playerController == null || enemyController == null)
@@ -104,18 +106,16 @@ public class TurnSystem : MonoBehaviour
 
     private void TryAutoAssignReferences()
     {
-        if (playerController == null)
-            playerController = FindAnyObjectByType<PlayerController>();
-
-        if (enemyController == null)
-            enemyController = FindAnyObjectByType<EnemyController>();
-
-        if (cameraFollow == null)
-            cameraFollow = FindAnyObjectByType<CameraFollow>();
-        if (squadRepository == null)
-            squadRepository = FindAnyObjectByType<SquadSaveParticipant>();
-        if (saveSystem == null)
-            saveSystem = FindAnyObjectByType<SaveSystemBehaviour>();
+        if (Application.isPlaying &&
+            (playerController == null || enemyController == null || cameraFollow == null ||
+            squadRepository == null || saveSystem == null ||
+            preBattlePreparationController == null))
+        {
+            Debug.LogError(
+                "TurnSystem: production dependencies must be assigned explicitly in the Inspector.",
+                this);
+            enabled = false;
+        }
     }
 
     private void HookPlayerEvents()
@@ -186,7 +186,7 @@ public class TurnSystem : MonoBehaviour
 
     private bool TryTriggerBattleEncounter(EncounterInitiator initiator)
     {
-        if (!loadBattleOnEncounter || battleLoadingTriggered)
+        if (!loadBattleOnEncounter || battleLoadingTriggered || preBattlePreparationOpen)
             return false;
 
         if (playerController == null || enemyController == null)
@@ -231,28 +231,6 @@ public class TurnSystem : MonoBehaviour
             if (ResolvedEncounterRegistry.IsResolved(encounterId))
                 return false;
 
-            if (squadRepository != null && squadRepository.Squads.Count > 0)
-            {
-                SquadData playerSquad = squadRepository.Squads.FirstOrDefault(
-                    squad => squad != null && squad.IsBattleEligible);
-                if (playerSquad == null)
-                {
-                    Debug.LogWarning(
-                        "TurnSystem: no battle-eligible persistent Player squad is available.");
-                    return false;
-                }
-                BattleSquadSelectionContext.SetSelection(
-                    new[] { playerSquad },
-                    null);
-            }
-            else
-            {
-                // The very first development encounter has no persistent roster yet.
-                // Raw_Alpha_BattleMode creates and registers its explicit fallback once;
-                // later encounters use only the restored eligible persistent squad.
-                BattleSquadSelectionContext.Clear();
-            }
-
             BattleEncounterContext.SetEncounterData(
                 mapGenerator.seed,
                 playerEncounterCell,
@@ -277,11 +255,98 @@ public class TurnSystem : MonoBehaviour
             return false;
         }
 
+        if (preBattlePreparationController == null)
+        {
+            Debug.LogError(
+                "TurnSystem: production encounter requires an explicit PreBattlePreparationController.");
+            BattleSquadSelectionContext.Clear();
+            BattleEncounterContext.Clear();
+            return false;
+        }
+
+        BattleSquadSelectionContext.Clear();
+        preBattlePreparationOpen = true;
+        if (playerController != null)
+            playerController.SetPlayerTurn(false);
+        if (!preBattlePreparationController.TryOpenForActiveEncounter(out string openReason))
+        {
+            preBattlePreparationOpen = false;
+            if (playerController != null)
+                playerController.SetPlayerTurn(true);
+            BattleEncounterContext.Clear();
+            Debug.LogError($"TurnSystem: Pre-Battle preparation could not open: {openReason}");
+            return false;
+        }
+        return true;
+    }
+
+    public bool ConfirmPreBattleSelection(string squadId, out string reason)
+    {
+        if (!preBattlePreparationOpen || battleLoadingTriggered)
+        {
+            reason = "No confirmable Pre-Battle encounter is active.";
+            return false;
+        }
+        if (!BattleEncounterContext.HasEncounterData ||
+            string.IsNullOrWhiteSpace(BattleEncounterContext.EncounterId))
+        {
+            reason = "Active encounter data was lost before confirmation.";
+            return false;
+        }
+        if (!PreBattleSquadSelectionService.TryResolveEligible(
+                squadRepository,
+                squadId,
+                out _,
+                out reason))
+        {
+            return false;
+        }
+        if (string.IsNullOrWhiteSpace(battleSceneName) ||
+            !Application.CanStreamedLevelBeLoaded(battleSceneName))
+        {
+            reason = $"Battle scene '{battleSceneName}' is unavailable.";
+            return false;
+        }
+        if (!BattleSquadSelectionContext.SetPersistentEncounterSelection(
+                squadId,
+                BattleEncounterContext.EncounterId,
+                true))
+        {
+            reason = "Persistent battle selection context rejected the confirmed squad.";
+            return false;
+        }
+
         battleLoadingTriggered = true;
+        preBattlePreparationOpen = false;
+        if (saveSystem == null || !saveSystem.PrepareCurrentDataForSceneRestore(true))
+        {
+            battleLoadingTriggered = false;
+            preBattlePreparationOpen = true;
+            BattleSquadSelectionContext.Clear();
+            reason = "Persistent save data could not be prepared for the battle scene.";
+            return false;
+        }
 
-        saveSystem?.PrepareCurrentDataForSceneRestore(true);
-
+        preBattlePreparationController?.CloseFromTurnSystem();
+        reason = null;
         SceneManager.LoadScene(battleSceneName, LoadSceneMode.Single);
         return true;
+    }
+
+    public void CancelPreBattlePreparation()
+    {
+        if (!preBattlePreparationOpen || battleLoadingTriggered)
+            return;
+
+        preBattlePreparationOpen = false;
+        BattleSquadSelectionContext.Clear();
+        BattleEncounterContext.Clear();
+        preBattlePreparationController?.CloseFromTurnSystem();
+        if (playerController != null)
+        {
+            playerController.SetPlayerTurn(true);
+            lastResolvedPlayerCell = playerController.CurrentCell;
+            hasLastResolvedPlayerCell = true;
+        }
     }
 }

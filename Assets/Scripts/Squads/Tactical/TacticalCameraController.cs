@@ -10,6 +10,7 @@ public sealed class TacticalCameraController : MonoBehaviour
     [SerializeField] private Camera controlledCamera;
     [SerializeField] private MapGenerator mapGenerator;
     [SerializeField] private MapRenderer mapRenderer;
+    [SerializeField] private BattleTurnController turnController;
     [SerializeField, Min(0.1f)] private float keyboardPanSpeed = 9f;
     [SerializeField, Min(0.1f)] private float zoomSensitivity = 4f;
     [SerializeField, Range(10f, 80f)] private float minimumFieldOfView = 32f;
@@ -20,6 +21,8 @@ public sealed class TacticalCameraController : MonoBehaviour
     private Vector3 lastPosition;
     private Quaternion lastRotation;
     private float lastFieldOfView;
+    private bool turnEventsBound;
+    private SquadBattleController pendingTurnFocus;
 
     public bool IsInitialized { get; private set; }
     public Camera ControlledCamera => controlledCamera;
@@ -27,6 +30,9 @@ public sealed class TacticalCameraController : MonoBehaviour
     public IReadOnlyList<Vector3> CurrentFootprint => footprint;
     public int PositionChangeCount { get; private set; }
     public int ViewportChangeCount { get; private set; }
+    public int KeyboardPanCount { get; private set; }
+    public int TurnFocusCount { get; private set; }
+    public string LastTurnFocusSquadId { get; private set; }
 
     public event Action PositionChanged;
     public event Action ViewportChanged;
@@ -45,12 +51,27 @@ public sealed class TacticalCameraController : MonoBehaviour
         float panSpeed = 9f,
         float zoomStep = 4f)
     {
+        Configure(camera, generator, renderer, null, panSpeed, zoomStep);
+    }
+
+    public void Configure(
+        Camera camera,
+        MapGenerator generator,
+        MapRenderer renderer,
+        BattleTurnController turns,
+        float panSpeed = 9f,
+        float zoomStep = 4f)
+    {
+        UnbindTurnEvents();
         controlledCamera = camera;
         mapGenerator = generator;
         mapRenderer = renderer;
+        turnController = turns;
         keyboardPanSpeed = Mathf.Max(0.1f, panSpeed);
         zoomSensitivity = Mathf.Max(0.1f, zoomStep);
         IsInitialized = false;
+        pendingTurnFocus = turnController?.ActiveSquad;
+        BindTurnEvents();
     }
 
     public bool Initialize()
@@ -66,13 +87,20 @@ public sealed class TacticalCameraController : MonoBehaviour
             return false;
         }
 
+        BindTurnEvents();
         MapBounds = bounds;
         controlledCamera.fieldOfView = Mathf.Clamp(
             controlledCamera.fieldOfView,
             minimumFieldOfView,
             maximumFieldOfView);
         IsInitialized = true;
-        if (focusMapCenterOnInitialize)
+        SquadBattleController initialTurnSquad =
+            pendingTurnFocus != null ? pendingTurnFocus : turnController?.ActiveSquad;
+        if (initialTurnSquad != null && TryFocusTurnSquad(initialTurnSquad))
+        {
+            // The turn event can precede camera initialization; consume it exactly once here.
+        }
+        else if (focusMapCenterOnInitialize)
             FocusWorld(MapBounds.center);
         else
             ClampToMapBounds();
@@ -123,6 +151,23 @@ public sealed class TacticalCameraController : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Shared bounded pan contract used by the production Arrow-key binding and tests.
+    /// It deliberately has no WASD binding because A is the battle Attack hotkey.
+    /// </summary>
+    public bool PanFromKeyboard(Vector2 direction, float unscaledDeltaTime)
+    {
+        if (!IsInitialized || direction.sqrMagnitude <= 0f || unscaledDeltaTime <= 0f)
+            return false;
+        float zoomScale = controlledCamera.fieldOfView / 60f;
+        bool accepted = PanWorld(
+            direction.normalized *
+            (keyboardPanSpeed * zoomScale * unscaledDeltaTime));
+        if (accepted)
+            KeyboardPanCount++;
+        return accepted;
+    }
+
     public bool ZoomBy(float steps)
     {
         if (!IsInitialized || Mathf.Approximately(steps, 0f))
@@ -166,11 +211,7 @@ public sealed class TacticalCameraController : MonoBehaviour
             if (Keyboard.current.upArrowKey.isPressed)
                 direction.y += 1f;
             if (direction.sqrMagnitude > 0f)
-            {
-                float zoomScale = controlledCamera.fieldOfView / 60f;
-                PanWorld(direction.normalized *
-                         (keyboardPanSpeed * zoomScale * Time.unscaledDeltaTime));
-            }
+                PanFromKeyboard(direction, Time.unscaledDeltaTime);
         }
 
         if (Mouse.current != null &&
@@ -287,4 +328,46 @@ public sealed class TacticalCameraController : MonoBehaviour
             ViewportChanged?.Invoke();
         }
     }
+
+    private void HandleTurnStarted(SquadBattleController activeSquad)
+    {
+        pendingTurnFocus = activeSquad;
+        if (IsInitialized)
+            TryFocusTurnSquad(activeSquad);
+    }
+
+    private bool TryFocusTurnSquad(SquadBattleController activeSquad)
+    {
+        if (activeSquad?.GridAnchor == null || !activeSquad.GridAnchor.IsPlaced ||
+            !FocusGrid(activeSquad.GridAnchor.CurrentCell))
+        {
+            return false;
+        }
+
+        pendingTurnFocus = null;
+        LastTurnFocusSquadId = activeSquad.SquadId;
+        TurnFocusCount++;
+        return true;
+    }
+
+    private void BindTurnEvents()
+    {
+        if (turnEventsBound || turnController == null)
+            return;
+        turnController.OnTurnStarted += HandleTurnStarted;
+        turnEventsBound = true;
+        if (turnController.ActiveSquad != null)
+            pendingTurnFocus = turnController.ActiveSquad;
+    }
+
+    private void UnbindTurnEvents()
+    {
+        if (!turnEventsBound || turnController == null)
+            return;
+        turnController.OnTurnStarted -= HandleTurnStarted;
+        turnEventsBound = false;
+    }
+
+    private void OnEnable() => BindTurnEvents();
+    private void OnDisable() => UnbindTurnEvents();
 }

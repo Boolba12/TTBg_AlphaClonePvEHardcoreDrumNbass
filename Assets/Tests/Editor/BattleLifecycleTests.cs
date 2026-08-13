@@ -332,6 +332,29 @@ public sealed class BattleLifecycleTests
     }
 
     [Test]
+    public void DevelopmentPostBattleAssetsHaveValidPersistentDebuffScriptBinding()
+    {
+        PersistentDebuffDefinition debuff =
+            AssetDatabase.LoadAssetAtPath<PersistentDebuffDefinition>(
+                "Assets/GameData/BattleLifecycle/DEV_BattleScar.asset");
+        PostBattleRules rules =
+            AssetDatabase.LoadAssetAtPath<PostBattleRules>(
+                "Assets/GameData/BattleLifecycle/DEV_PostBattleRules.asset");
+
+        Assert.That(debuff, Is.Not.Null);
+        Assert.That(debuff.Validate(out string debuffError), Is.True, debuffError);
+        Assert.That(debuff.StableId, Is.EqualTo("DEV_BattleScar"));
+        Assert.That(debuff.ResolveModifier, Is.EqualTo(-1f));
+        Assert.That(debuff.Persistent, Is.True);
+        Assert.That(debuff.Stackable, Is.False);
+
+        Assert.That(rules, Is.Not.Null);
+        Assert.That(rules.Validate(out string rulesError), Is.True, rulesError);
+        Assert.That(rules.DefeatedCommanderSurvivalChance, Is.EqualTo(0.2f));
+        Assert.That(rules.SurvivorDebuff, Is.SameAs(debuff));
+    }
+
+    [Test]
     public void SceneContractsContainOneLifecycleOwnerOneModalAndOverworldPersistenceComposition()
     {
         Scene battle = EditorSceneManager.OpenScene(

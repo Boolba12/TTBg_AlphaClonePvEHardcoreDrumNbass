@@ -4,6 +4,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -44,6 +45,8 @@ public sealed class BattleMinimapAndMapScaleTests
 
             TacticalMinimapController minimap =
                 FindAllInScene<TacticalMinimapController>(scene).Single();
+            TacticalCameraController camera =
+                FindAllInScene<TacticalCameraController>(scene).Single();
             SerializedObject serialized = new SerializedObject(minimap);
             Assert.That(serialized.FindProperty("mapGenerator").objectReferenceValue,
                 Is.SameAs(bootstrap.mapGenerator));
@@ -53,11 +56,44 @@ public sealed class BattleMinimapAndMapScaleTests
                 Is.Not.Null);
             Assert.That(serialized.FindProperty("cameraController").objectReferenceValue,
                 Is.Not.Null);
+            SerializedObject serializedCamera = new SerializedObject(camera);
+            Assert.That(serializedCamera.FindProperty("turnController").objectReferenceValue,
+                Is.SameAs(FindAllInScene<BattleTurnController>(scene).Single()),
+                "Production tactical camera must use the explicit turn owner reference.");
         }
         finally
         {
             EditorSceneManager.CloseScene(scene, true);
         }
+    }
+
+    [Test]
+    public void ProductionMinimapGraphicOwnsCanvasRendererAndRaycastsWithoutException()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/UI/Prefabs/Battle/BattleHUD.prefab");
+        Assert.That(prefab, Is.Not.Null);
+        Transform prefabMapContent = prefab.GetComponentsInChildren<Transform>(true)
+            .Single(transform => transform.name == "MapContent");
+        MinimapGridGraphic prefabGraphic =
+            prefabMapContent.GetComponent<MinimapGridGraphic>();
+        Assert.That(prefabGraphic, Is.Not.Null);
+        Assert.That(prefabGraphic.raycastTarget, Is.True);
+        Assert.That(prefabMapContent.GetComponents<CanvasRenderer>().Length, Is.EqualTo(1),
+            "A raycastable Graphic requires exactly one CanvasRenderer.");
+
+        GameObject instance = Track(Object.Instantiate(prefab));
+        GraphicRaycaster raycaster = instance.GetComponentInChildren<GraphicRaycaster>(true);
+        Assert.That(raycaster, Is.Not.Null);
+        GameObject eventObject = Track(new GameObject("RegressionEventSystem"));
+        EventSystem eventSystem = eventObject.AddComponent<EventSystem>();
+        PointerEventData pointer = new PointerEventData(eventSystem)
+        {
+            position = Vector2.zero
+        };
+        List<RaycastResult> results = new List<RaycastResult>();
+        Canvas.ForceUpdateCanvases();
+        Assert.DoesNotThrow(() => raycaster.Raycast(pointer, results));
     }
 
     [Test]
@@ -145,13 +181,15 @@ public sealed class BattleMinimapAndMapScaleTests
     [Test]
     public void TacticalCameraUsesGeneratedBoundsAndEmitsViewportForPanAndZoom()
     {
-        MapSetup setup = CreateMap(20, 12, 180, 5656);
+        MapSetup setup = CreateMap(32, 24, 600, 5656);
+        Assert.That(setup.Renderer.TryGetGeneratedWorldBounds(
+            out Bounds generatedBounds, true), Is.True);
         GameObject cameraObject = Track(new GameObject("TacticalCamera"));
         Camera camera = cameraObject.AddComponent<Camera>();
-        camera.aspect = 16f / 9f;
-        camera.fieldOfView = 55f;
-        camera.transform.position = new Vector3(10f, 18f, -4f);
-        camera.transform.rotation = Quaternion.Euler(58f, 0f, 0f);
+        camera.aspect = 1.25f;
+        camera.fieldOfView = 36f;
+        camera.transform.position = generatedBounds.center + new Vector3(0f, 8f, -3f);
+        camera.transform.rotation = Quaternion.Euler(68f, 0f, 0f);
         TacticalCameraController controller = cameraObject.AddComponent<TacticalCameraController>();
         controller.Configure(camera, setup.Generator, setup.Renderer);
 
@@ -164,7 +202,47 @@ public sealed class BattleMinimapAndMapScaleTests
         Assert.That(controller.ViewportChangeCount, Is.GreaterThan(viewportBefore));
         Vector2Int playable = setup.Generator.GetCentralPlayableCell();
         Assert.That(controller.FocusGrid(playable), Is.True);
+        Vector3 worldFocus = setup.Renderer.GetCellWorldCenter(playable);
+        Vector3 footprintCenter = controller.CurrentFootprint.Aggregate(
+            Vector3.zero,
+            (sum, point) => sum + point) / controller.CurrentFootprint.Count;
+        Assert.That(footprintCenter.x, Is.EqualTo(worldFocus.x).Within(0.01f));
+        Assert.That(footprintCenter.z, Is.EqualTo(worldFocus.z).Within(0.01f));
         Assert.That(controller.FocusGrid(new Vector2Int(-1, -1)), Is.False);
+
+        Vector2[] directions =
+        {
+            Vector2.up,
+            Vector2.down,
+            Vector2.left,
+            Vector2.right
+        };
+        foreach (Vector2 direction in directions)
+        {
+            Assert.That(controller.FocusGrid(playable), Is.True);
+            Vector3 beforeKeyboardPan = camera.transform.position;
+            Assert.That(controller.PanFromKeyboard(direction, 0.25f), Is.True);
+            Assert.That(camera.transform.position, Is.Not.EqualTo(beforeKeyboardPan));
+        }
+        Assert.That(controller.KeyboardPanCount, Is.EqualTo(4));
+
+        Assert.That(controller.PanWorld(new Vector2(1000f, 1000f)), Is.True);
+        foreach (Vector3 point in controller.CurrentFootprint)
+        {
+            Assert.That(point.x, Is.InRange(
+                controller.MapBounds.min.x - 0.01f,
+                controller.MapBounds.max.x + 0.01f));
+            Assert.That(point.z, Is.InRange(
+                controller.MapBounds.min.z - 0.01f,
+                controller.MapBounds.max.z + 0.01f));
+        }
+
+        string source = System.IO.File.ReadAllText(
+            "Assets/Scripts/Squads/Tactical/TacticalCameraController.cs");
+        Assert.That(source, Does.Contain("leftArrowKey").And.Contain("rightArrowKey")
+            .And.Contain("upArrowKey").And.Contain("downArrowKey"));
+        Assert.That(source, Does.Not.Contain("Keyboard.current.aKey"),
+            "A remains reserved for the Attack command.");
     }
 
     [Test]

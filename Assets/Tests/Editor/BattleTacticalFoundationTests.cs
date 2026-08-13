@@ -158,6 +158,49 @@ public sealed class BattleTacticalFoundationTests
     }
 
     [Test]
+    public void TacticalCameraFocusesFirstActiveSquadAndEachSubsequentTurnOnce()
+    {
+        TacticalSetup setup = CreateSetup();
+        BattleTurnController turns = Track(new GameObject("Turns"))
+            .AddComponent<BattleTurnController>();
+        turns.Configure(setup.Bootstrap, false, 0f);
+        Assert.That(setup.Renderer.TryGetGeneratedWorldBounds(
+            out Bounds bounds, true), Is.True);
+
+        GameObject cameraObject = Track(new GameObject("TacticalCamera"));
+        Camera camera = cameraObject.AddComponent<Camera>();
+        camera.aspect = 1f;
+        camera.fieldOfView = 32f;
+        camera.transform.position = bounds.center + Vector3.up * 5f;
+        camera.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        TacticalCameraController tacticalCamera =
+            cameraObject.AddComponent<TacticalCameraController>();
+        tacticalCamera.Configure(
+            camera,
+            setup.Generator,
+            setup.Renderer,
+            turns);
+        Assert.That(tacticalCamera.Initialize(), Is.True);
+        Assert.That(tacticalCamera.TurnFocusCount, Is.Zero);
+
+        Assert.That(turns.StartBattle(), Is.True);
+        Assert.That(turns.ActiveSquad, Is.SameAs(setup.Player));
+        Assert.That(tacticalCamera.LastTurnFocusSquadId, Is.EqualTo(setup.Player.SquadId));
+        Assert.That(tacticalCamera.TurnFocusCount, Is.EqualTo(1));
+
+        Vector3 focusedPlayerPosition = camera.transform.position;
+        Assert.That(tacticalCamera.PanFromKeyboard(Vector2.right, 0.2f), Is.True);
+        Assert.That(camera.transform.position, Is.Not.EqualTo(focusedPlayerPosition));
+        Assert.That(tacticalCamera.TurnFocusCount, Is.EqualTo(1),
+            "Manual pan must not start a continuous auto-follow routine.");
+
+        Assert.That(turns.EndCurrentTurn(), Is.True);
+        Assert.That(turns.ActiveSquad, Is.SameAs(setup.Enemy));
+        Assert.That(tacticalCamera.LastTurnFocusSquadId, Is.EqualTo(setup.Enemy.SquadId));
+        Assert.That(tacticalCamera.TurnFocusCount, Is.EqualTo(2));
+    }
+
+    [Test]
     public void DefeatedActiveEntryIsRemovedAndSkippedByTurnController()
     {
         TacticalSetup setup = CreateSetup();

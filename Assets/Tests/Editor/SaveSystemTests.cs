@@ -85,6 +85,23 @@ public sealed class SaveSystemTests
         Assert.That(File.Exists(storage.GetSavePath("nested")), Is.False);
     }
 
+    [Test]
+    public void SceneTransitionCaptureRefreshesParticipantsWithoutWritingSaveFile()
+    {
+        MutableSaveable saveable = new MutableSaveable { State = "before-battle" };
+        service.Register(saveable);
+        GameSaveData data = service.CreateNew("first_try");
+
+        SaveOperationResult result = service.CaptureForSceneTransition(data);
+
+        Assert.That(result.Success, Is.True);
+        Assert.That(data.systems, Has.Count.EqualTo(1));
+        Assert.That(data.systems[0].key, Is.EqualTo("mutable"));
+        Assert.That(data.systems[0].json, Is.EqualTo("before-battle"));
+        Assert.That(storage.Exists("autosave"), Is.False);
+        Assert.That(storage.Exists("slot"), Is.False);
+    }
+
     private sealed class ReentrantSaveable : ISaveable
     {
         public string SaveKey => "reentrant";
@@ -100,5 +117,13 @@ public sealed class SaveSystemTests
         public void RestoreState(string json)
         {
         }
+    }
+
+    private sealed class MutableSaveable : ISaveable
+    {
+        public string SaveKey => "mutable";
+        public string State;
+        public string CaptureState() => State;
+        public void RestoreState(string json) => State = json;
     }
 }

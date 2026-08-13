@@ -15,6 +15,7 @@ public class BattleMapBootstrap : MonoBehaviour
     public PlayerController playerController;
     public EnemyController enemyController;
     [SerializeField] private SquadBattleBootstrap squadBattleBootstrap;
+    [SerializeField] private SaveSystemBehaviour startupSaveSystem;
 
     [Header("Combat Mode")]
     [SerializeField] private BattleCombatMode combatMode = BattleCombatMode.LegacyUnits;
@@ -50,10 +51,12 @@ public class BattleMapBootstrap : MonoBehaviour
 
     private bool hasBootstrapped;
     private bool usedDevelopmentAutoConfirm;
+    private bool usedConfirmedPreBattleAutoConfirm;
 
     public BattleCombatMode CombatMode => combatMode;
     public bool HasBootstrapped => hasBootstrapped;
     public bool UsedDevelopmentAutoConfirm => usedDevelopmentAutoConfirm;
+    public bool UsedConfirmedPreBattleAutoConfirm => usedConfirmedPreBattleAutoConfirm;
     public GameObject LegacyPlayerRoot => legacyPlayerRoot;
     public GameObject LegacyEnemyRoot => legacyEnemyRoot;
     public IReadOnlyList<GameObject> ObsoleteLegacyCombatRoots =>
@@ -101,9 +104,13 @@ public class BattleMapBootstrap : MonoBehaviour
             yield break;
         }
 
+        while (startupSaveSystem != null && !startupSaveSystem.StartupRestoreCompleted)
+            yield return null;
+
         if (battleContextMenuRoot != null)
             battleContextMenuRoot.SetActive(true);
 
+        TryConfirmedPreBattleAutoConfirm();
         TryDevelopmentAutoConfirm();
 
         while (!BattleSetupContext.IsConfirmed)
@@ -146,6 +153,32 @@ public class BattleMapBootstrap : MonoBehaviour
 
         // Keep encounter data available if battle scene needs it later.
         // BattleEncounterContext.Clear();
+    }
+
+    private void TryConfirmedPreBattleAutoConfirm()
+    {
+        if (BattleSquadSelectionContext.Kind !=
+                BattleSquadSelectionKind.PersistentEncounter ||
+            battleSetupUI == null ||
+            BattleSetupContext.IsConfirmed)
+        {
+            return;
+        }
+
+        if (battleSetupUI.TryConfirmBattleSetup(out string reason))
+        {
+            usedConfirmedPreBattleAutoConfirm = true;
+            Debug.Log(
+                "BattleMapBootstrap: confirmed setup through the production Pre-Battle " +
+                "selection pathway.",
+                this);
+        }
+        else
+        {
+            Debug.LogError(
+                $"BattleMapBootstrap: Pre-Battle selection could not confirm battle setup: {reason}",
+                this);
+        }
     }
 
     private bool SpawnSquads(Vector2Int playerSpawn, Vector2Int enemySpawn)

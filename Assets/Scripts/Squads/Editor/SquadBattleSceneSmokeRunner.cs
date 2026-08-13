@@ -48,6 +48,8 @@ public static class SquadBattleSceneSmokeRunner
     private const string SweepingBlowUsedKey = "SquadBattleSceneSmoke.SweepingBlowUsed";
     private const string MinimapInactivityStartKey =
         "SquadBattleSceneSmoke.MinimapInactivityStart";
+    private const string RuntimeRegressionErrorKey =
+        "SquadBattleSceneSmoke.RuntimeRegressionError";
     private const string SmokeSaveRoot = "Temp/BattleLifecycleSmoke";
     private const int MaximumApproachMoves = 12;
 
@@ -57,6 +59,9 @@ public static class SquadBattleSceneSmokeRunner
         if (!File.Exists(RunRequestPath))
             return;
 
+        SessionState.EraseString(RuntimeRegressionErrorKey);
+        Application.logMessageReceived -= CaptureRuntimeRegressionError;
+        Application.logMessageReceived += CaptureRuntimeRegressionError;
         BattleReturnContext.Clear();
         PendingSaveLoadContext.Clear();
         ResolvedEncounterRegistry.Clear();
@@ -92,6 +97,7 @@ public static class SquadBattleSceneSmokeRunner
         SessionState.EraseBool(RallyUsedKey);
         SessionState.EraseBool(PowerStrikeUsedKey);
         SessionState.EraseBool(SweepingBlowUsedKey);
+        SessionState.EraseString(RuntimeRegressionErrorKey);
         SessionState.SetInt(PhaseKey, 10);
         RegisterUpdate();
     }
@@ -337,6 +343,7 @@ public static class SquadBattleSceneSmokeRunner
         Require(minimaps.Length == 1 && minimaps[0].IsInitialized &&
                 minimaps[0].SuccessfulInitializationCount == 1,
             "Expected one initialized TacticalMinimapController owner.");
+        RequireNoRuntimeRegressionErrors();
 
         ValidateBattleHud(battleHud, squadBootstrap, player);
 
@@ -521,6 +528,22 @@ public static class SquadBattleSceneSmokeRunner
             UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
         SquadBattleController player = squads.SpawnedControllers.Single(
             controller => controller.Side == BattleSide.Player);
+        BattleTurnController turns =
+            UnityEngine.Object.FindAnyObjectByType<BattleTurnController>();
+
+        Require(camera.TurnFocusCount >= 1 &&
+                camera.LastTurnFocusSquadId == turns.ActiveSquad?.SquadId,
+            "Tactical camera did not focus the first/current active squad through the turn event.");
+        Vector3 beforeArrowPan = camera.ControlledCamera.transform.position;
+        int keyboardPanBefore = camera.KeyboardPanCount;
+        float footprintCenterX = camera.CurrentFootprint.Average(point => point.x);
+        Vector2 arrowDirection = footprintCenterX <= camera.MapBounds.center.x
+            ? Vector2.right
+            : Vector2.left;
+        Require(camera.PanFromKeyboard(arrowDirection, 0.25f) &&
+                camera.KeyboardPanCount == keyboardPanBefore + 1 &&
+                camera.ControlledCamera.transform.position != beforeArrowPan,
+            "Production Arrow-key pan contract did not move the tactical camera.");
 
         Require(minimap.GridPresenter.GridGraphic.PotentialElementCount == 1024,
             "Minimap static layer did not represent all 1024 potential cells.");
@@ -603,6 +626,7 @@ public static class SquadBattleSceneSmokeRunner
                 selection.SelectedSquad == selectionBefore &&
                 modes.ActiveMode == modeBefore,
             "Minimap camera interaction leaked into a battlefield gameplay command.");
+        RequireNoRuntimeRegressionErrors();
 
         LogMapPerformanceSanity(mapBootstrap, minimap, playable);
         SessionState.SetString(
@@ -936,10 +960,16 @@ public static class SquadBattleSceneSmokeRunner
                 "Move targeting could not be re-entered before End Turn.");
         }
         PrepareAITurnSmoke(player, enemy);
+        TacticalCameraController camera =
+            UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
+        int turnFocusBefore = camera.TurnFocusCount;
         endTurnAction.Button.onClick.Invoke();
         Require(commands.EndTurnCommandCount == expectedMovementCount &&
                 turns.ActiveSquad == enemy,
             "EndTurn HUD click did not advance to the next initiative entry exactly once.");
+        Require(camera.TurnFocusCount == turnFocusBefore + 1 &&
+                camera.LastTurnFocusSquadId == enemy.SquadId,
+            "Active squad change did not focus the Enemy exactly once for its turn.");
         Require(!commands.IsMovementTargeting && preview != null && !preview.IsVisible,
             "End Turn did not clear movement targeting and its preview.");
         InitiativeEntryView enemyEntry = initiative.SpawnedEntries.Single(
@@ -950,6 +980,7 @@ public static class SquadBattleSceneSmokeRunner
             "Selected and active initiative states were conflated after End Turn.");
         Require(tacticalBootstrap.SuccessfulInitializationCount == 1,
             "Tactical bootstrap ran more than once during production flow.");
+        RequireNoRuntimeRegressionErrors();
 
         SessionState.SetInt(ExpectedEndTurnCountKey, commands.EndTurnCommandCount);
         SessionState.SetInt(PhaseKey, 2);
@@ -1008,6 +1039,12 @@ public static class SquadBattleSceneSmokeRunner
                 occupiedCell == enemy.GridAnchor.CurrentCell &&
                 occupancy.ReservationCount == 0,
             "Enemy Tactical AI movement did not finish with canonical occupancy state.");
+        TacticalCameraController camera =
+            UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
+        Require(camera.LastTurnFocusSquadId == player.SquadId &&
+                camera.TurnFocusCount >= 3,
+            "Camera did not return focus to Player when the AI turn completed.");
+        RequireNoRuntimeRegressionErrors();
         Require(tacticalBootstrap.SuccessfulInitializationCount == 1,
             "Tactical bootstrap ran more than once during the turn cycle.");
         SessionState.SetInt(PhaseKey, 0);
@@ -1654,8 +1691,42 @@ public static class SquadBattleSceneSmokeRunner
         return size.x * size.y;
     }
 
+    private static void CaptureRuntimeRegressionError(
+        string condition,
+        string stackTrace,
+        LogType type)
+    {
+        if (type != LogType.Exception &&
+            !condition.Contains("MissingComponentException") &&
+            !condition.Contains("MissingReferenceException") &&
+            !condition.Contains("NullReferenceException"))
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(
+                SessionState.GetString(RuntimeRegressionErrorKey, string.Empty)))
+        {
+            SessionState.SetString(
+                RuntimeRegressionErrorKey,
+                $"Runtime exception during production scene smoke: {condition}\n{stackTrace}");
+        }
+    }
+
+    private static void RequireNoRuntimeRegressionErrors()
+    {
+        string error = SessionState.GetString(RuntimeRegressionErrorKey, string.Empty);
+        Require(string.IsNullOrEmpty(error), error);
+    }
+
     private static void Finish(bool passed, string message)
     {
+        if (passed && !string.IsNullOrEmpty(
+                SessionState.GetString(RuntimeRegressionErrorKey, string.Empty)))
+        {
+            passed = false;
+            message = SessionState.GetString(RuntimeRegressionErrorKey, string.Empty);
+        }
         WriteResult(passed, message);
         Debug.Log(
             $"Squad battle scene smoke: {(passed ? "PASSED" : "FAILED")} - {message}");
@@ -1681,6 +1752,8 @@ public static class SquadBattleSceneSmokeRunner
         SessionState.EraseString(ExpectedBattleIdKey);
         SessionState.EraseString(ExpectedEncounterIdKey);
         SessionState.EraseString(MinimapInactivityStartKey);
+        SessionState.EraseString(RuntimeRegressionErrorKey);
+        Application.logMessageReceived -= CaptureRuntimeRegressionError;
         SessionState.EraseInt(PhaseKey);
         SessionState.EraseInt(DestinationXKey);
         SessionState.EraseInt(DestinationYKey);

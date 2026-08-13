@@ -66,6 +66,10 @@ public static class BattleMinimapStageInstaller
                     expandButton != null && mapContent != null,
                 "Minimap hierarchy is incomplete.");
 
+            GetOrAdd<CanvasRenderer>(mapContent.gameObject);
+            Require(mapContent.GetComponents<CanvasRenderer>().Length == 1,
+                "MapContent must own exactly one CanvasRenderer for its raycastable UI Graphic.");
+
             MinimapGridGraphic gridGraphic = mapContent.GetComponent<MinimapGridGraphic>();
             AspectRatioFitter fitter = mapContent.GetComponent<AspectRatioFitter>();
             MinimapGridPresenter grid = mapContent.GetComponent<MinimapGridPresenter>();
@@ -140,6 +144,7 @@ public static class BattleMinimapStageInstaller
 
         GameObject mapContent = NewUI("MapContent", mapSurface.transform);
         Stretch(mapContent.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, new Vector2(7f, 7f), new Vector2(-7f, -7f));
+        mapContent.AddComponent<CanvasRenderer>();
         MinimapGridGraphic gridGraphic = mapContent.AddComponent<MinimapGridGraphic>();
         gridGraphic.raycastTarget = true;
         AspectRatioFitter fitter = mapContent.AddComponent<AspectRatioFitter>();
@@ -183,6 +188,7 @@ public static class BattleMinimapStageInstaller
         Require(generator != null && renderer != null,
             "BattleMapBootstrap canonical map references are missing.");
         SquadBattleBootstrap squads = RequireExactlyOne<SquadBattleBootstrap>();
+        BattleTurnController turns = RequireExactlyOne<BattleTurnController>();
         Camera camera = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsInactive.Include)
             .Single(candidate => candidate.CompareTag("MainCamera"));
         TacticalMinimapController minimap = RequireExactlyOne<TacticalMinimapController>();
@@ -195,7 +201,7 @@ public static class BattleMinimapStageInstaller
         generator.width = 32;
         generator.height = 32;
         generator.playableCount = 720;
-        tacticalCamera.Configure(camera, generator, renderer);
+        tacticalCamera.Configure(camera, generator, renderer, turns);
         minimap.Configure(
             generator,
             renderer,

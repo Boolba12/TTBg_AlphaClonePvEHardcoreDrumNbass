@@ -262,28 +262,65 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         error = null;
 
         bool contextProvided =
-            BattleSquadSelectionContext.PlayerSquads.Count > 0 ||
-            BattleSquadSelectionContext.EnemySquads.Count > 0;
+            BattleSquadSelectionContext.PlayerSquadIds.Count > 0 ||
+            BattleSquadSelectionContext.EnemySquadIds.Count > 0;
         if (contextProvided)
         {
-            playerSquad = FirstValid(BattleSquadSelectionContext.PlayerSquads);
-            enemySquad = FirstValid(
-                BattleSquadSelectionContext.EnemySquads,
-                playerSquad?.Id);
-            if (playerSquad != null && enemySquad == null && enableDevelopmentFallback &&
-                IsValidDistinct(developmentEnemySquad, playerSquad.Id))
+            if (BattleSquadSelectionContext.Kind == BattleSquadSelectionKind.PersistentEncounter)
             {
-                enemySquad = developmentEnemySquad;
-                enemySource = "Inspector development enemy fallback";
+                if (squadRepository == null)
+                {
+                    error =
+                        "persistent encounter selection requires an explicit SquadSaveParticipant repository";
+                    return false;
+                }
+                if (!string.Equals(
+                        BattleSquadSelectionContext.EncounterId,
+                        BattleEncounterContext.EncounterId,
+                        System.StringComparison.Ordinal))
+                {
+                    error =
+                        "persistent squad selection does not belong to the active encounter";
+                    return false;
+                }
+
+                playerSquad = ResolveContextSquad(
+                    BattleSquadSelectionContext.PlayerSquadIds,
+                    null);
+                enemySquad = ResolveContextSquad(
+                    BattleSquadSelectionContext.EnemySquadIds,
+                    playerSquad?.Id);
+                if (playerSquad != null && enemySquad == null &&
+                    BattleSquadSelectionContext.AllowConfiguredEncounterEnemy &&
+                    enableDevelopmentFallback &&
+                    IsValidDistinct(developmentEnemySquad, playerSquad.Id))
+                {
+                    enemySquad = developmentEnemySquad;
+                    enemySource = "explicit Inspector encounter opponent bridge";
+                }
+                playerSource = "persistent repository ID from BattleSquadSelectionContext";
+            }
+            else
+            {
+                playerSquad = FirstValid(BattleSquadSelectionContext.PlayerSquads);
+                enemySquad = FirstValid(
+                    BattleSquadSelectionContext.EnemySquads,
+                    playerSquad?.Id);
+                if (playerSquad != null && enemySquad == null && enableDevelopmentFallback &&
+                    IsValidDistinct(developmentEnemySquad, playerSquad.Id))
+                {
+                    enemySquad = developmentEnemySquad;
+                    enemySource = "Inspector development enemy fallback";
+                }
+                playerSource = "direct BattleSquadSelectionContext data";
             }
             if (playerSquad == null || enemySquad == null)
             {
                 error =
-                    "BattleSquadSelectionContext was provided but did not contain one valid, distinct squad per side; fallback was not used";
+                    "BattleSquadSelectionContext was provided but did not resolve one valid, distinct squad per side; implicit fallback was not used";
                 return false;
             }
 
-            playerSource = "BattleSquadSelectionContext";
             enemySource ??= "BattleSquadSelectionContext";
             consumeSelection = true;
             return true;
@@ -351,6 +388,22 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         }
 
         return FirstValid(squadRepository.Squads, excludedId);
+    }
+
+    private SquadData ResolveContextSquad(
+        IReadOnlyList<string> ids,
+        string excludedId)
+    {
+        if (ids == null)
+            return null;
+
+        for (int i = 0; i < ids.Count; i++)
+        {
+            SquadData candidate = squadRepository.GetSquad(ids[i]);
+            if (IsValidDistinct(candidate, excludedId))
+                return candidate;
+        }
+        return null;
     }
 
     private bool ValidateCompositionReferences(
