@@ -75,7 +75,8 @@ public sealed class SaveSystemBehaviour : MonoBehaviour
         EnsureCurrentData();
         currentData.sceneName = SceneManager.GetActiveScene().name;
         currentData.totalPlayTimeSeconds = Time.realtimeSinceStartupAsDouble;
-        Report(service.Save(slotId, currentData), "save");
+        LastOperationResult = service.Save(slotId, currentData);
+        Report(LastOperationResult, "save");
     }
 
     public void Autosave()

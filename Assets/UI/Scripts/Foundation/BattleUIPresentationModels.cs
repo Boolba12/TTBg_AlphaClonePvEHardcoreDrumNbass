@@ -107,14 +107,6 @@ public readonly struct InitiativeEntryModel
 }
 
 [Serializable]
-public enum EquipmentSlotKind
-{
-    Weapon,
-    Armor,
-    Accessory
-}
-
-[Serializable]
 public sealed class EquipmentSlotPresentationModel
 {
     public string slotId;

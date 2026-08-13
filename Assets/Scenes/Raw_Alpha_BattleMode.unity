@@ -5494,6 +5494,7 @@ MonoBehaviour:
   squadBattlePrefab: {fileID: 2884263546295866468, guid: 332e661300e072648af259b82e866904, type: 3}
   squadContainer: {fileID: 2046519721}
   squadRepository: {fileID: 1726508108}
+  equipmentCatalog: {fileID: 11400000, guid: f10baef415d62374685d2bd3cec5c25e, type: 2}
   playerFormationPresentation: {fileID: 11400000, guid: cd7849f315486ac45bacd4cdb021e9ba, type: 2}
   enemyFormationPresentation: {fileID: 11400000, guid: b67b39f78c7811449b4a63e241bb038c, type: 2}
   savedPlayerSquadId: 
@@ -5562,6 +5563,37 @@ MonoBehaviour:
       resolve: 0
       visionRange: 0
       experienceMultiplier: 0
+    equipment:
+      ownedItems:
+      - instanceId: dev-player-squad-dev-item-test-weapon-07
+        definitionId: test-weapon-07
+      - instanceId: dev-player-squad-dev-item-test-wp-dagger-01
+        definitionId: test-wp-dagger-01
+      - instanceId: dev-player-squad-dev-item-test-wp-estoc-03
+        definitionId: test-wp-estoc-03
+      - instanceId: dev-player-squad-dev-item-test-wp-falchion-04
+        definitionId: test-wp-falchion-04
+      - instanceId: dev-player-squad-dev-item-test-wp-greatsword-02
+        definitionId: test-wp-greatsword-02
+      - instanceId: dev-player-squad-dev-item-test-wp-longsword-05
+        definitionId: test-wp-longsword-05
+      - instanceId: dev-player-squad-dev-item-test-wp-mace-04
+        definitionId: test-wp-mace-04
+      - instanceId: dev-player-squad-dev-item-test-wp-mace-10
+        definitionId: test-wp-mace-10
+      - instanceId: dev-player-squad-dev-item-test-wp-sword-01
+        definitionId: test-wp-sword-01
+      - instanceId: dev-player-squad-dev-item-test-wp-sword-02
+        definitionId: test-wp-sword-02
+      - instanceId: dev-player-squad-dev-item-test-wp-sword-03
+        definitionId: test-wp-sword-03
+      - instanceId: dev-player-squad-dev-item-test-wp-sword-04
+        definitionId: test-wp-sword-04
+      squadWeaponInstanceId: dev-player-squad-dev-item-test-wp-sword-01
+      commanderWeaponInstanceId: dev-player-squad-dev-item-test-wp-dagger-01
+      armorInstanceId: 
+      accessoryInstanceId: 
+    equipmentSchemaVersion: 1
     status: 0
   developmentEnemySquad:
     id: dev-enemy-squad
@@ -5626,6 +5658,37 @@ MonoBehaviour:
       resolve: 0
       visionRange: 0
       experienceMultiplier: 0
+    equipment:
+      ownedItems:
+      - instanceId: dev-enemy-squad-dev-item-test-weapon-07
+        definitionId: test-weapon-07
+      - instanceId: dev-enemy-squad-dev-item-test-wp-dagger-01
+        definitionId: test-wp-dagger-01
+      - instanceId: dev-enemy-squad-dev-item-test-wp-estoc-03
+        definitionId: test-wp-estoc-03
+      - instanceId: dev-enemy-squad-dev-item-test-wp-falchion-04
+        definitionId: test-wp-falchion-04
+      - instanceId: dev-enemy-squad-dev-item-test-wp-greatsword-02
+        definitionId: test-wp-greatsword-02
+      - instanceId: dev-enemy-squad-dev-item-test-wp-longsword-05
+        definitionId: test-wp-longsword-05
+      - instanceId: dev-enemy-squad-dev-item-test-wp-mace-04
+        definitionId: test-wp-mace-04
+      - instanceId: dev-enemy-squad-dev-item-test-wp-mace-10
+        definitionId: test-wp-mace-10
+      - instanceId: dev-enemy-squad-dev-item-test-wp-sword-01
+        definitionId: test-wp-sword-01
+      - instanceId: dev-enemy-squad-dev-item-test-wp-sword-02
+        definitionId: test-wp-sword-02
+      - instanceId: dev-enemy-squad-dev-item-test-wp-sword-03
+        definitionId: test-wp-sword-03
+      - instanceId: dev-enemy-squad-dev-item-test-wp-sword-04
+        definitionId: test-wp-sword-04
+      squadWeaponInstanceId: dev-enemy-squad-dev-item-test-wp-sword-01
+      commanderWeaponInstanceId: dev-enemy-squad-dev-item-test-wp-dagger-01
+      armorInstanceId: 
+      accessoryInstanceId: 
+    equipmentSchemaVersion: 1
     status: 0
   enableDevelopmentLogs: 1
 --- !u!114 &1726508108
@@ -5642,6 +5705,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SquadSaveParticipant
   squads: []
   saveActiveBattleState: 0
+  equipmentCatalog: {fileID: 11400000, guid: f10baef415d62374685d2bd3cec5c25e, type: 2}
+  grantDevelopmentEquipmentToLegacySquads: 1
 --- !u!4 &1726508109
 Transform:
   m_ObjectHideFlags: 0

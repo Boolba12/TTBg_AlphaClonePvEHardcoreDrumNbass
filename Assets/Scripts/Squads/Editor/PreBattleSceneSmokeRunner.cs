@@ -18,6 +18,9 @@ public static class PreBattleSceneSmokeRunner
         "Assets/Scripts/Squads/Editor/PreBattleSceneSmoke.run-request";
     private const string ResultPath = "Logs/PreBattleSceneSmokeResults_2026-08-13.xml";
     private const string SelectedSquadId = "smoke-persistent-beta";
+    private const string SelectedWeaponId = "test-wp-greatsword-02";
+    private const string SelectedArmorId = "DEV_BastionArmor";
+    private const string SelectedAccessoryId = "DEV_HawkeyeCharm";
     private const string StartedKey = "PreBattleSmoke.Started";
     private const string FinishedKey = "PreBattleSmoke.Finished";
     private const string PassedKey = "PreBattleSmoke.Passed";
@@ -26,6 +29,7 @@ public static class PreBattleSceneSmokeRunner
     private const string StartTimeKey = "PreBattleSmoke.StartTime";
     private const string RosterSnapshotKey = "PreBattleSmoke.RosterSnapshot";
     private const string RuntimeErrorKey = "PreBattleSmoke.RuntimeError";
+    private const string ManagementVerifiedKey = "PreBattleSmoke.ManagementVerified";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void PreparePersistentRoster()
@@ -46,12 +50,19 @@ public static class PreBattleSceneSmokeRunner
                 "Assets/Art/CommanderPortraits/CommanderPortraitDatabase.asset");
         string portraitId = portraits?.Entries.FirstOrDefault(entry =>
             entry != null && entry.Race == CommanderRace.Human && entry.Sprite != null)?.Id;
+        EquipmentDefinitionCatalog equipmentCatalog =
+            AssetDatabase.LoadAssetAtPath<EquipmentDefinitionCatalog>(
+                "Assets/GameData/Equipment/DEV_EquipmentDefinitionCatalog.asset");
+        SquadData alpha = CreateSquad("smoke-persistent-alpha", portraitId, 1, 6);
+        SquadData beta = CreateSquad(SelectedSquadId, portraitId, 3, 14);
+        ConfigureSmokeEquipment(alpha, equipmentCatalog);
+        ConfigureSmokeEquipment(beta, equipmentCatalog);
         SquadSavePayload payload = new SquadSavePayload
         {
             squads = new List<SquadData>
             {
-                CreateSquad("smoke-persistent-alpha", portraitId, 1, 6),
-                CreateSquad(SelectedSquadId, portraitId, 3, 14)
+                alpha,
+                beta
             }
         };
         GameSaveData data = new GameSaveData
@@ -83,6 +94,7 @@ public static class PreBattleSceneSmokeRunner
         SessionState.EraseBool(PassedKey);
         SessionState.EraseString(RuntimeErrorKey);
         SessionState.EraseString(RosterSnapshotKey);
+        SessionState.EraseBool(ManagementVerifiedKey);
         SessionState.SetInt(PhaseKey, 0);
         SessionState.SetInt(AttemptsKey, 0);
         RegisterUpdate();
@@ -156,6 +168,15 @@ public static class PreBattleSceneSmokeRunner
         }
 
         int phase = SessionState.GetInt(PhaseKey, 0);
+        if (!SessionState.GetBool(ManagementVerifiedKey, false) && !preparation.IsOpen)
+        {
+            if (turn.IsEnemyTurnRunning || player.IsMovementInProgress ||
+                turn.IsBattleLoadingTriggered)
+                return;
+            ValidateManagementProductionFlow(repository);
+            SessionState.SetBool(ManagementVerifiedKey, true);
+            return;
+        }
         if (preparation.IsOpen)
         {
             Require(view.IsVisible, "Pre-Battle controller opened without its production view.");
@@ -185,14 +206,31 @@ public static class PreBattleSceneSmokeRunner
 
             PreBattleSquadCardView card = UnityEngine.Object
                 .FindObjectsByType<PreBattleSquadCardView>(
-                    FindObjectsInactive.Include, FindObjectsSortMode.None)
-                .FirstOrDefault(candidate => candidate.SquadId == SelectedSquadId);
+                     FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(candidate => candidate.SquadId == SelectedSquadId &&
+                    candidate.gameObject.activeInHierarchy &&
+                    candidate.GetComponentInParent<PreBattlePreparationView>() != null);
             Require(card != null && card.gameObject.activeInHierarchy,
                 "Selected persistent squad card is unavailable.");
             card.SelectButton.onClick.Invoke();
             Require(preparation.SelectedSquadId == SelectedSquadId &&
                     view.ConfirmButton.interactable,
                 "Production card selection did not enable Confirm for the exact stable ID.");
+            Require(view.EquipmentCardCount == 12,
+                "Pre-Battle Equipment v2 did not render all twelve owned weapon instances.");
+            ItemPreviewCardView weaponCard = UnityEngine.Object
+                .FindObjectsByType<ItemPreviewCardView>(
+                    FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy &&
+                    candidate.DisplayedId == SelectedWeaponId);
+            Require(weaponCard?.Button != null && weaponCard.Button.interactable,
+                "Selected development weapon is not commandable through production UI.");
+            weaponCard.Button.onClick.Invoke();
+            SquadData selected = repository.GetSquad(SelectedSquadId);
+            EquipmentItemInstance equipped = selected.Equipment.OwnedItems.FirstOrDefault(item =>
+                item != null && item.InstanceId == selected.Equipment.SquadWeaponInstanceId);
+            Require(equipped?.DefinitionId == SelectedWeaponId,
+                "Production equipment click did not atomically update persistent Squad Weapon.");
             view.ConfirmButton.onClick.Invoke();
             SessionState.SetInt(PhaseKey, 4);
             return;
@@ -271,6 +309,21 @@ public static class PreBattleSceneSmokeRunner
             $"Battle spawned '{player.SquadId}' instead of selected '{SelectedSquadId}'.");
         Require(player.Runtime.Data.Id == SelectedSquadId,
             "Battle runtime is not backed by the selected persistent SquadData identity.");
+        Require(player.Runtime.Equipment.SquadWeapon?.DefinitionId == SelectedWeaponId,
+            "Battle runtime did not snapshot the Squad Weapon selected in Pre-Battle UI.");
+        Require(player.Runtime.Equipment.ArmorDefinitionId == SelectedArmorId,
+            "Battle runtime did not preserve the Armor selected in Squad Management.");
+        Require(player.Runtime.Equipment.AccessoryDefinitionId == SelectedAccessoryId,
+            "Battle runtime did not preserve the Accessory selected in Squad Management.");
+        Require(player.Runtime.Stats.PhysicalArmor > 0f &&
+                player.Runtime.Stats.Accuracy > .1f,
+            "Management equipment modifiers were not present in battle calculated stats.");
+        BattleAttackService attackService =
+            UnityEngine.Object.FindAnyObjectByType<BattleAttackService>();
+        Require(attackService != null && attackService.BasicAttack != null &&
+                player.Runtime.Equipment.GetWeaponForAttack(attackService.BasicAttack)
+                    ?.DefinitionId == SelectedWeaponId,
+            "Basic Attack does not resolve the Pre-Battle Squad Weapon snapshot.");
         Require(!BattleSquadSelectionContext.HasSelection,
             "Successful battle bootstrap did not consume selection context.");
         Require(UnityEngine.Object.FindObjectsByType<EventSystem>(
@@ -278,8 +331,103 @@ public static class PreBattleSceneSmokeRunner
             "Raw battle does not contain exactly one EventSystem.");
         RequireNoRuntimeErrors();
         Finish(true,
-            "first_try encounter opened Pre-Battle UI; Cancel was pure; exact stable-ID " +
-            "selection entered the 32x32 battle through persistent restore and existing bootstrap.");
+            "first_try SQUADS button opened persistent Management UI; production slot/item/" +
+            "Equip controls applied weapon, Armor and Accessory, Save succeeded, close/reopen " +
+            "preserved state; Pre-Battle then entered the 32x32 battle with the same immutable " +
+            "equipment snapshot and calculated modifiers.");
+    }
+
+    private static void ValidateManagementProductionFlow(SquadSaveParticipant repository)
+    {
+        SquadManagementController controller =
+            UnityEngine.Object.FindAnyObjectByType<SquadManagementController>();
+        SquadManagementView management =
+            UnityEngine.Object.FindAnyObjectByType<SquadManagementView>(FindObjectsInactive.Include);
+        SaveSystemBehaviour save = UnityEngine.Object.FindAnyObjectByType<SaveSystemBehaviour>();
+        Require(controller?.OpenButton != null && management != null && save != null,
+            "Production Squad Management owner, view or SQUADS button is missing.");
+        Require(UnityEngine.Object.FindObjectsByType<SquadManagementController>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 1,
+            "first_try has duplicate Squad Management owners.");
+        Require(UnityEngine.Object.FindObjectsByType<EventSystem>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 1,
+            "first_try does not contain exactly one EventSystem.");
+
+        controller.OpenButton.onClick.Invoke();
+        Require(controller.IsOpen && management.IsVisible && management.SquadCardCount == 2,
+            "SQUADS production button did not render both persistent squads.");
+        PreBattleSquadCardView selectedCard = UnityEngine.Object
+            .FindObjectsByType<PreBattleSquadCardView>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(card => card.gameObject.activeInHierarchy &&
+                card.SquadId == SelectedSquadId);
+        Require(selectedCard?.SelectButton != null,
+            "Management persistent squad card is unavailable.");
+        selectedCard.SelectButton.onClick.Invoke();
+        Require(controller.SelectedSquadId == SelectedSquadId,
+            "Management squad selection did not use the persistent stable ID.");
+
+        EquipThroughManagement(controller, management, "SquadWeaponSlot", SelectedWeaponId);
+        EquipThroughManagement(controller, management, "ArmorSlot", SelectedArmorId);
+        EquipThroughManagement(controller, management, "AccessorySlot", SelectedAccessoryId);
+
+        string smokeSaveRoot = Path.GetFullPath("Logs/SquadManagementSmokeSave");
+        Require(save.ConfigureStorageRootForTests(smokeSaveRoot),
+            "Management smoke save root could not be configured.");
+        management.SaveButton.onClick.Invoke();
+        Require(save.LastOperationResult.Success,
+            $"Production Save button failed: {save.LastOperationResult.Error}");
+        management.CloseButton.onClick.Invoke();
+        Require(!controller.IsOpen && !management.IsVisible,
+            "Management Close did not restore overworld input state.");
+
+        controller.OpenButton.onClick.Invoke();
+        Require(controller.IsOpen, "Management did not reopen through SQUADS.");
+        SquadData selected = repository.GetSquad(SelectedSquadId);
+        Require(ResolveDefinitionId(selected, EquipmentSlotKind.SquadWeapon) == SelectedWeaponId &&
+                ResolveDefinitionId(selected, EquipmentSlotKind.Armor) == SelectedArmorId &&
+                ResolveDefinitionId(selected, EquipmentSlotKind.Accessory) == SelectedAccessoryId,
+            "Close/reopen did not preserve persistent management equipment state.");
+        management.CloseButton.onClick.Invoke();
+    }
+
+    private static void EquipThroughManagement(SquadManagementController controller,
+        SquadManagementView management, string slotObjectName, string definitionId)
+    {
+        EquipmentSlotView slot = UnityEngine.Object.FindObjectsByType<EquipmentSlotView>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy &&
+                candidate.gameObject.name == slotObjectName &&
+                candidate.GetComponentInParent<SquadManagementView>() != null);
+        Require(slot?.Button != null, $"Management slot '{slotObjectName}' is missing.");
+        slot.Button.onClick.Invoke();
+        ItemPreviewCardView item = UnityEngine.Object.FindObjectsByType<ItemPreviewCardView>(
+            FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(candidate => candidate.gameObject.activeInHierarchy &&
+                candidate.DisplayedId == definitionId && candidate.Button != null &&
+                candidate.Button.interactable &&
+                candidate.InstanceId.StartsWith(SelectedSquadId,
+                    StringComparison.Ordinal) &&
+                candidate.GetComponentInParent<SquadManagementView>() != null);
+        Require(item != null, $"Owned management item '{definitionId}' is not commandable.");
+        item.Button.onClick.Invoke();
+        Require(controller.SelectedItemInstanceId == item.InstanceId,
+            "Item preview selection did not reach the management controller.");
+        management.EquipButton.onClick.Invoke();
+        string resolved = ResolveDefinitionId(
+            UnityEngine.Object.FindAnyObjectByType<SquadSaveParticipant>()
+                .GetSquad(SelectedSquadId), controller.SelectedSlot);
+        Require(resolved == definitionId,
+            $"Production Equip did not commit '{definitionId}'. " +
+            $"slot={controller.SelectedSlot}, selected={controller.SelectedItemInstanceId}, " +
+            $"resolved={resolved}, ui={management.OperationMessage}");
+    }
+
+    private static string ResolveDefinitionId(SquadData squad, EquipmentSlotKind slot)
+    {
+        string instanceId = squad?.Equipment.GetEquippedInstanceId(slot);
+        return squad?.Equipment.OwnedItems.FirstOrDefault(item => item != null &&
+            item.InstanceId == instanceId)?.DefinitionId;
     }
 
     private static SquadData CreateSquad(
@@ -305,6 +453,28 @@ public static class PreBattleSceneSmokeRunner
                 criticalChance = 0.1f, criticalDamage = 1.5f
             }
         }, warriors);
+    }
+
+    private static void ConfigureSmokeEquipment(
+        SquadData squad,
+        EquipmentDefinitionCatalog catalog)
+    {
+        Require(catalog != null && catalog.Weapons.Count == 12,
+            "Equipment smoke catalog is unavailable.");
+        SquadEquipmentService service = new SquadEquipmentService(catalog);
+        foreach (EquipmentItemDefinition definition in catalog.EnumerateDefinitions())
+            Require(service.GrantOwnedItem(squad,
+                $"{squad.Id}-smoke-{definition.StableId}", definition.StableId).Success,
+                $"Could not grant {definition.StableId} to smoke squad.");
+        Require(service.TryEquip(squad,
+            $"{squad.Id}-smoke-test-wp-sword-01",
+            EquipmentSlotKind.SquadWeapon).Success,
+            "Could not configure smoke Squad Weapon.");
+        Require(service.TryEquip(squad,
+            $"{squad.Id}-smoke-test-wp-dagger-01",
+            EquipmentSlotKind.CommanderWeapon).Success,
+            "Could not configure smoke Commander Weapon.");
+        squad.MarkEquipmentSchemaCurrent();
     }
 
     private static void CheckTimeout()

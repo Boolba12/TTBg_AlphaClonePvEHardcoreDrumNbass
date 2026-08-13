@@ -24,12 +24,14 @@ public class TurnSystem : MonoBehaviour
     private bool enemyTurnRunning;
     private bool battleLoadingTriggered;
     private bool preBattlePreparationOpen;
+    private bool externalModalOpen;
     private bool isSubscribedToPlayer;
     private Vector2Int lastResolvedPlayerCell;
     private bool hasLastResolvedPlayerCell;
 
     public bool IsEnemyTurnRunning => enemyTurnRunning;
     public bool IsPreBattlePreparationOpen => preBattlePreparationOpen;
+    public bool IsExternalModalOpen => externalModalOpen;
     public bool IsBattleLoadingTriggered => battleLoadingTriggered;
     public string CurrentTurnLabel => enemyTurnRunning ? "Enemy" : "Player";
 
@@ -78,7 +80,8 @@ public class TurnSystem : MonoBehaviour
         TryAutoAssignReferences();
         HookPlayerEvents();
 
-        if (enemyTurnRunning || battleLoadingTriggered || preBattlePreparationOpen){
+        if (enemyTurnRunning || battleLoadingTriggered || preBattlePreparationOpen ||
+            externalModalOpen){
             return;}
 
         if (playerController == null || enemyController == null)
@@ -186,7 +189,8 @@ public class TurnSystem : MonoBehaviour
 
     private bool TryTriggerBattleEncounter(EncounterInitiator initiator)
     {
-        if (!loadBattleOnEncounter || battleLoadingTriggered || preBattlePreparationOpen)
+        if (!loadBattleOnEncounter || battleLoadingTriggered || preBattlePreparationOpen ||
+            externalModalOpen)
             return false;
 
         if (playerController == null || enemyController == null)
@@ -348,5 +352,21 @@ public class TurnSystem : MonoBehaviour
             lastResolvedPlayerCell = playerController.CurrentCell;
             hasLastResolvedPlayerCell = true;
         }
+    }
+
+    public bool TrySetExternalModalOpen(bool open, out string reason)
+    {
+        if (open && (battleLoadingTriggered || preBattlePreparationOpen ||
+                     enemyTurnRunning || playerController == null ||
+                     playerController.IsMovementInProgress))
+        {
+            reason = "Overworld is busy and cannot open Squad Management.";
+            return false;
+        }
+
+        externalModalOpen = open;
+        playerController?.SetExternalInputBlocked(open);
+        reason = null;
+        return true;
     }
 }

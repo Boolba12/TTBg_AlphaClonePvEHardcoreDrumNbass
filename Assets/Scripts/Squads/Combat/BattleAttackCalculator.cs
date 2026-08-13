@@ -11,7 +11,8 @@ public sealed class BattleAttackCalculator
 
     public float CalculateHitChance(
         SquadCalculatedStats attacker,
-        SquadCalculatedStats target)
+        SquadCalculatedStats target,
+        WeaponCombatSnapshot weapon = null)
     {
         if (rules == null)
             return 0f;
@@ -33,7 +34,8 @@ public sealed class BattleAttackCalculator
     public float CalculateRawDamage(
         SquadCalculatedStats attacker,
         AttackDefinition definition,
-        bool critical)
+        bool critical,
+        WeaponCombatSnapshot weapon = null)
     {
         if (definition == null)
             return 0f;
@@ -47,7 +49,9 @@ public sealed class BattleAttackCalculator
         };
         float raw = Mathf.Max(
             0f,
-            definition.BaseDamage + scalingStat * definition.PrimaryStatScaling);
+            definition.BaseDamage + (weapon?.BaseDamageBonus ?? 0) +
+            scalingStat * (definition.PrimaryStatScaling +
+                           (weapon?.PrimaryScalingBonus ?? 0f)));
         if (critical)
             raw *= Mathf.Max(1f, attacker.CriticalDamage);
         return raw;
@@ -57,9 +61,10 @@ public sealed class BattleAttackCalculator
         SquadCalculatedStats attacker,
         SquadCalculatedStats target,
         AttackDefinition definition,
-        bool critical)
+        bool critical,
+        WeaponCombatSnapshot weapon = null)
     {
-        float raw = CalculateRawDamage(attacker, definition, critical);
+        float raw = CalculateRawDamage(attacker, definition, critical, weapon);
         float reduction = definition != null &&
                           definition.DamageType == BattleDamageType.Physical &&
                           rules != null

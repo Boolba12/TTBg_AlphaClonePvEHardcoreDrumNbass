@@ -1,6 +1,9 @@
 public static class SquadStatsCalculator
 {
-    public static SquadCalculatedStats Calculate(SquadData data, SquadBattleState battleState = null)
+    public static SquadCalculatedStats Calculate(
+        SquadData data,
+        SquadBattleState battleState = null,
+        SquadStatModifiers equipmentModifiers = null)
     {
         if (data?.Commander?.baseStats == null)
             return default;
@@ -23,6 +26,7 @@ public static class SquadStatsCalculator
         SquadStatModifiers modifiers = SquadStatModifiers.Combine(
             data.PermanentModifiers,
             battleState?.temporaryModifiers);
+        modifiers = SquadStatModifiers.Combine(modifiers, equipmentModifiers);
 
         return new SquadCalculatedStats(
             data.Commander.baseStats,
@@ -30,6 +34,17 @@ public static class SquadStatsCalculator
             warriorStrength,
             warriorDexterity,
             modifiers);
+    }
+
+    public static SquadCalculatedStats Calculate(
+        SquadData data,
+        EquipmentDefinitionCatalog equipmentCatalog,
+        SquadBattleState battleState = null)
+    {
+        SquadStatModifiers equipment = equipmentCatalog != null && data != null
+            ? new SquadEquipmentService(equipmentCatalog).BuildEquippedStatModifiers(data)
+            : null;
+        return Calculate(data, battleState, equipment);
     }
 
     private static bool IsAlive(string warriorId, SquadBattleState state)

@@ -9,6 +9,7 @@ public sealed class SquadBattleRuntime
     public SquadData Data { get; }
     public SquadBattleState State { get; }
     public SquadCalculatedStats Stats { get; private set; }
+    public BattleEquipmentSnapshot Equipment { get; }
     public bool CanAct => !State.IsDefeated;
 
     public event Action<SquadBattleRuntime> OnSquadCreated;
@@ -28,14 +29,19 @@ public sealed class SquadBattleRuntime
         SquadData data,
         SquadBattleState restoredState = null,
         SquadDamageResolver damageResolver = null,
-        Func<double> randomValue = null)
+        Func<double> randomValue = null,
+        EquipmentDefinitionCatalog equipmentCatalog = null)
     {
         Data = data ?? throw new ArgumentNullException(nameof(data));
         SquadValidationResult validation = data.Validate();
         if (!validation.IsValid)
             throw new ArgumentException($"Invalid squad: {validation}");
 
-        Stats = SquadStatsCalculator.Calculate(data);
+        if (!BattleEquipmentSnapshot.TryCreate(
+                data, equipmentCatalog, out BattleEquipmentSnapshot equipment, out string reason))
+            throw new ArgumentException($"Invalid battle equipment: {reason}");
+        Equipment = equipment;
+        Stats = SquadStatsCalculator.Calculate(data, null, Equipment.StatModifiers);
         State = restoredState ?? SquadBattleState.Create(data, Stats);
         this.damageResolver = damageResolver ?? new SquadDamageResolver();
         this.randomValue = randomValue ?? new Random().NextDouble;
@@ -182,7 +188,7 @@ public sealed class SquadBattleRuntime
 
     public void RecalculateStats()
     {
-        Stats = SquadStatsCalculator.Calculate(Data, State);
+        Stats = SquadStatsCalculator.Calculate(Data, State, Equipment.StatModifiers);
         OnSquadStatsChanged?.Invoke(Stats);
     }
 

@@ -169,12 +169,14 @@ public sealed class BattleAttackService : MonoBehaviour
                 definition?.DamageType ?? BattleDamageType.Physical,
                 target?.Runtime?.State?.CurrentSquadHP ?? 0,
                 target?.Runtime?.Stats.MaxHP ?? 0,
-                CountLivingWarriors(target?.Runtime));
+                CountLivingWarriors(target?.Runtime),
+                attacker?.Runtime?.Equipment?.GetWeaponForAttack(definition)?.DefinitionId);
         }
 
         float hitChance = calculator.CalculateHitChance(
             attacker.Runtime.Stats,
             target.Runtime.Stats);
+        WeaponCombatSnapshot weapon = attacker.Runtime.Equipment.GetWeaponForAttack(definition);
         float criticalChance = calculator.CalculateCriticalChance(
             attacker.Runtime.Stats,
             definition);
@@ -182,12 +184,14 @@ public sealed class BattleAttackService : MonoBehaviour
             attacker.Runtime.Stats,
             target.Runtime.Stats,
             definition,
-            false);
+            false,
+            weapon);
         BattleDamageCalculation critical = calculator.CalculateDamage(
             attacker.Runtime.Stats,
             target.Runtime.Stats,
             definition,
-            true);
+            true,
+            weapon);
         return new BattleAttackPreview(
             attacker.SquadId,
             target.SquadId,
@@ -201,7 +205,8 @@ public sealed class BattleAttackService : MonoBehaviour
             definition.DamageType,
             target.Runtime.State.CurrentSquadHP,
             target.Runtime.Stats.MaxHP,
-            CountLivingWarriors(target.Runtime));
+            CountLivingWarriors(target.Runtime),
+            weapon?.DefinitionId);
     }
 
     public bool TryExecuteAttack(
@@ -213,6 +218,8 @@ public sealed class BattleAttackService : MonoBehaviour
     {
         definition ??= basicAttack;
         result = CreateResult(attacker, target, definition);
+        result.WeaponDefinitionId =
+            attacker?.Runtime?.Equipment?.GetWeaponForAttack(definition)?.DefinitionId ?? string.Empty;
         BattleAttackValidationResult validation = ValidateCommand(
             attacker,
             target,
@@ -259,7 +266,8 @@ public sealed class BattleAttackService : MonoBehaviour
                 attacker.Runtime.Stats,
                 target.Runtime.Stats,
                 definition,
-                result.Critical);
+                result.Critical,
+                attacker.Runtime.Equipment.GetWeaponForAttack(definition));
             result.RawDamage = damage.RawDamage;
             result.MitigatedDamage = damage.MitigatedDamage;
 

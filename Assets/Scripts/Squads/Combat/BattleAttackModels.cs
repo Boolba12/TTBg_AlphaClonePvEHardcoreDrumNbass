@@ -84,7 +84,8 @@ public readonly struct BattleAttackPreview
         BattleDamageType damageType,
         int targetCurrentHealth,
         int targetMaximumHealth,
-        int targetLivingWarriors)
+        int targetLivingWarriors,
+        string weaponDefinitionId = null)
     {
         AttackerId = attackerId ?? string.Empty;
         TargetId = targetId ?? string.Empty;
@@ -99,6 +100,7 @@ public readonly struct BattleAttackPreview
         TargetCurrentHealth = Math.Max(0, targetCurrentHealth);
         TargetMaximumHealth = Math.Max(0, targetMaximumHealth);
         TargetLivingWarriors = Math.Max(0, targetLivingWarriors);
+        WeaponDefinitionId = weaponDefinitionId ?? string.Empty;
     }
 
     public string AttackerId { get; }
@@ -115,6 +117,7 @@ public readonly struct BattleAttackPreview
     public int TargetCurrentHealth { get; }
     public int TargetMaximumHealth { get; }
     public int TargetLivingWarriors { get; }
+    public string WeaponDefinitionId { get; }
 }
 
 [Serializable]
@@ -125,6 +128,7 @@ public sealed class BattleAttackResult
     public string AttackerId { get; internal set; }
     public string TargetId { get; internal set; }
     public string AttackId { get; internal set; }
+    public string WeaponDefinitionId { get; internal set; }
     public bool WasExecuted { get; internal set; }
     public int ActionPointsSpent { get; internal set; }
     public bool Hit { get; internal set; }

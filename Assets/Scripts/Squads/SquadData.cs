@@ -19,6 +19,7 @@ public sealed class PersistentDebuffRecord
 [Serializable]
 public sealed class SquadData : ICommanderPortraitTarget
 {
+    public const int CurrentEquipmentSchemaVersion = 2;
     public const int MinimumWarriors = 1;
     public const int MaximumWarriors = 8;
 
@@ -26,12 +27,24 @@ public sealed class SquadData : ICommanderPortraitTarget
     [SerializeField] private CommanderData commander;
     [SerializeField] private List<WarriorData> warriors = new List<WarriorData>();
     [SerializeField] private SquadStatModifiers permanentModifiers = new SquadStatModifiers();
+    [SerializeField] private SquadEquipmentState equipment = new SquadEquipmentState();
+    [SerializeField] private int equipmentSchemaVersion = CurrentEquipmentSchemaVersion;
     [SerializeField] private PersistentSquadStatus status = PersistentSquadStatus.Active;
 
     public string Id => id;
     public CommanderData Commander => commander;
     public IReadOnlyList<WarriorData> Warriors => warriors;
     public SquadStatModifiers PermanentModifiers => permanentModifiers;
+    public SquadEquipmentState Equipment
+    {
+        get
+        {
+            equipment ??= new SquadEquipmentState();
+            equipment.EnsureInitialized();
+            return equipment;
+        }
+    }
+    public int EquipmentSchemaVersion => equipmentSchemaVersion;
     public PersistentSquadStatus Status => status;
     public bool IsBattleEligible => status == PersistentSquadStatus.Active &&
                                     warriors != null && warriors.Count >= MinimumWarriors;
@@ -45,6 +58,9 @@ public sealed class SquadData : ICommanderPortraitTarget
                 commander.CommanderPortraitId = value;
         }
     }
+
+    public void MarkEquipmentSchemaCurrent() =>
+        equipmentSchemaVersion = CurrentEquipmentSchemaVersion;
 
     public SquadData(
         string id,
@@ -151,7 +167,40 @@ public sealed class SquadData : ICommanderPortraitTarget
         }
 
         permanentModifiers ??= new SquadStatModifiers();
+        equipment ??= new SquadEquipmentState();
+        equipment.EnsureInitialized();
+        ValidateEquipment(errors);
         return new SquadValidationResult(errors);
+    }
+
+    private void ValidateEquipment(List<string> errors)
+    {
+        HashSet<string> instanceIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (EquipmentItemInstance item in equipment.OwnedItems)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.InstanceId) ||
+                string.IsNullOrWhiteSpace(item.DefinitionId))
+            {
+                errors.Add("Owned equipment contains an incomplete instance.");
+                continue;
+            }
+            if (!instanceIds.Add(item.InstanceId))
+                errors.Add($"Duplicate equipment instance ID '{item.InstanceId}'.");
+        }
+
+        HashSet<string> equipped = new HashSet<string>(StringComparer.Ordinal);
+        foreach (EquipmentSlotKind slot in new[] { EquipmentSlotKind.SquadWeapon,
+                     EquipmentSlotKind.CommanderWeapon, EquipmentSlotKind.Armor,
+                     EquipmentSlotKind.Accessory })
+        {
+            string instanceId = equipment.GetEquippedInstanceId(slot);
+            if (string.IsNullOrWhiteSpace(instanceId))
+                continue;
+            if (!instanceIds.Contains(instanceId))
+                errors.Add($"{slot} references unowned instance '{instanceId}'.");
+            else if (!equipped.Add(instanceId))
+                errors.Add($"Equipment instance '{instanceId}' is assigned to multiple slots.");
+        }
     }
 
     internal bool ApplyPostBattleState(

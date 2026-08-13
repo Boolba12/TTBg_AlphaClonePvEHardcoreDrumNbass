@@ -29,6 +29,7 @@ public class PlayerController : UnitController
     private bool previewMoveQueued;
     private bool previewOutOfRange;
     private bool isPlayerTurn = true;
+    private bool externalInputBlocked;
     private Vector2Int previewTargetCell;
     private readonly List<Vector2Int> currentPath = new List<Vector2Int>();
     private LineRenderer pathLineRenderer;
@@ -48,6 +49,9 @@ public class PlayerController : UnitController
         TickMovement();
 
         if (IsMovementBusy)
+            return;
+
+        if (externalInputBlocked)
             return;
 
         if (useTurnSystem && !isPlayerTurn)
@@ -142,9 +146,16 @@ public class PlayerController : UnitController
         TryRequestPathToCell(targetCell);
     }
 
+    public void SetExternalInputBlocked(bool blocked)
+    {
+        externalInputBlocked = blocked;
+        if (blocked)
+            ClearPreviewPath();
+    }
+
     public bool TryRequestPathToCell(Vector2Int targetCell)
     {
-        if (IsMovementBusy || (useTurnSystem && !isPlayerTurn) ||
+        if (externalInputBlocked || IsMovementBusy || (useTurnSystem && !isPlayerTurn) ||
             mapGenerator == null || mapRenderer == null ||
             !mapGenerator.HasGeneratedData ||
             targetCell.x < 0 || targetCell.x >= mapGenerator.width ||

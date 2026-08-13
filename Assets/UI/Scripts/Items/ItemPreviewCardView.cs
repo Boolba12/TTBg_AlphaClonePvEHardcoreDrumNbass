@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,6 +27,10 @@ public sealed class ItemPreviewCardView : MonoBehaviour
     [SerializeField] private TMP_Text emptyLabel;
     [SerializeField] private Image selectionFrame;
     [SerializeField] private Image disabledOverlay;
+    [SerializeField] private Button button;
+
+    private string instanceId;
+    private Action<string> selected;
 
     public string DisplayedId { get; private set; }
     public Sprite DisplayedPreview => preview != null ? preview.sprite : null;
@@ -33,6 +38,8 @@ public sealed class ItemPreviewCardView : MonoBehaviour
     public bool IsSelected { get; private set; }
     public bool IsEquipped { get; private set; }
     public bool IsDisabled { get; private set; }
+    public string InstanceId => instanceId;
+    public Button Button => button;
 
     public void Configure(
         PurgatoryUITheme configuredTheme,
@@ -42,7 +49,8 @@ public sealed class ItemPreviewCardView : MonoBehaviour
         TMP_Text configuredCategory,
         TMP_Text configuredEmptyLabel,
         Image configuredSelectionFrame,
-        Image configuredDisabledOverlay)
+        Image configuredDisabledOverlay,
+        Button configuredButton = null)
     {
         theme = configuredTheme;
         frame = configuredFrame;
@@ -52,8 +60,98 @@ public sealed class ItemPreviewCardView : MonoBehaviour
         emptyLabel = configuredEmptyLabel;
         selectionFrame = configuredSelectionFrame;
         disabledOverlay = configuredDisabledOverlay;
+        button = configuredButton != null ? configuredButton : GetComponent<Button>();
         ApplyTheme();
         Render(null, false, true);
+    }
+
+    public void BindWeapon(EquipmentItemInstance instance, Weapon definition,
+        ItemPreviewCardState state, Action<string> onSelected)
+    {
+        Unbind();
+        instanceId = instance?.InstanceId ?? string.Empty;
+        selected = onSelected;
+        DisplayedId = definition?.StableId ?? string.Empty;
+        IsEmpty = definition == null || definition.PreviewSprite == null;
+        IsSelected = state.Selected;
+        IsEquipped = state.Equipped;
+        IsDisabled = state.Disabled;
+        if (preview != null)
+        {
+            preview.sprite = !IsEmpty ? definition.PreviewSprite : theme?.IconPlaceholderSprite;
+            preview.enabled = preview.sprite != null;
+            preview.preserveAspect = true;
+        }
+        if (titleLabel != null) titleLabel.text = definition?.DisplayName ?? "Missing definition";
+        if (categoryLabel != null)
+            categoryLabel.text = state.Equipped
+                ? $"{definition?.Class} • Equipped"
+                : definition?.Class.ToString() ?? "Unavailable";
+        if (emptyLabel != null)
+        {
+            emptyLabel.text = definition == null ? "Definition unavailable" : "Preview unavailable";
+            emptyLabel.gameObject.SetActive(IsEmpty);
+        }
+        if (selectionFrame != null) selectionFrame.enabled = state.Selected;
+        if (disabledOverlay != null) disabledOverlay.enabled = state.Disabled;
+        if (button != null)
+        {
+            button.interactable = !state.Disabled;
+            button.onClick.AddListener(HandleSelected);
+        }
+    }
+
+    public void BindEquipment(EquipmentItemInstance instance,
+        EquipmentItemDefinition definition, ItemPreviewCardState state,
+        Action<string> onSelected)
+    {
+        if (definition is Weapon weapon)
+        {
+            BindWeapon(instance, weapon, state, onSelected);
+            return;
+        }
+
+        Unbind();
+        instanceId = instance?.InstanceId ?? string.Empty;
+        selected = onSelected;
+        DisplayedId = definition?.StableId ?? string.Empty;
+        IsEmpty = definition == null || definition.PreviewSprite == null;
+        IsSelected = state.Selected;
+        IsEquipped = state.Equipped;
+        IsDisabled = state.Disabled;
+        if (preview != null)
+        {
+            preview.sprite = !IsEmpty ? definition.PreviewSprite : theme?.IconPlaceholderSprite;
+            preview.enabled = preview.sprite != null;
+            preview.preserveAspect = true;
+        }
+        if (titleLabel != null)
+            titleLabel.text = definition?.DisplayName ?? "Missing definition";
+        if (categoryLabel != null)
+            categoryLabel.text = definition == null
+                ? "Unavailable"
+                : state.Equipped ? $"{definition.Category} - Equipped" : definition.Category.ToString();
+        if (emptyLabel != null)
+        {
+            emptyLabel.text = definition == null
+                ? "Definition unavailable" : "Preview unavailable";
+            emptyLabel.gameObject.SetActive(IsEmpty);
+        }
+        if (selectionFrame != null) selectionFrame.enabled = state.Selected;
+        if (disabledOverlay != null) disabledOverlay.enabled = state.Disabled;
+        if (button != null)
+        {
+            button.interactable = !state.Disabled;
+            button.onClick.AddListener(HandleSelected);
+        }
+    }
+
+    private void HandleSelected() => selected?.Invoke(instanceId);
+
+    private void Unbind()
+    {
+        button?.onClick.RemoveListener(HandleSelected);
+        selected = null;
     }
 
     public void Render(ItemPresentationRecord record, bool selected, bool disabled)
@@ -125,4 +223,6 @@ public sealed class ItemPreviewCardView : MonoBehaviour
         target.fontSize = size;
         target.color = color;
     }
+
+    private void OnDestroy() => Unbind();
 }

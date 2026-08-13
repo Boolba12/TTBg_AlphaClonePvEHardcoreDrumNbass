@@ -15,6 +15,9 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
     [SerializeField] private List<SquadData> squads = new List<SquadData>();
     [Tooltip("Development-only until production mid-battle restore is integrated.")]
     [SerializeField] private bool saveActiveBattleState;
+    [Header("Equipment migration")]
+    [SerializeField] private EquipmentDefinitionCatalog equipmentCatalog;
+    [SerializeField] private bool grantDevelopmentEquipmentToLegacySquads;
 
     private readonly Dictionary<string, SquadBattleRuntime> activeRuntimes =
         new Dictionary<string, SquadBattleRuntime>();
@@ -37,6 +40,15 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
     public void SetActiveBattleStateSaving(bool enabled)
     {
         saveActiveBattleState = enabled;
+    }
+
+    public void ConfigureEquipmentMigration(
+        EquipmentDefinitionCatalog catalog,
+        bool enabled)
+    {
+        equipmentCatalog = catalog;
+        grantDevelopmentEquipmentToLegacySquads = enabled;
+        MigrateLegacyEquipment();
     }
 
     public bool TryAddSquad(SquadData squad, out string error)
@@ -137,7 +149,10 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
             }
         }
         if (payload?.activeBattles == null)
+        {
+            MigrateLegacyEquipment();
             return;
+        }
 
         foreach (SquadBattleState battle in payload.activeBattles)
         {
@@ -148,5 +163,47 @@ public sealed class SquadSaveParticipant : MonoBehaviour, ISaveable
             }
             restoredBattles.Add(battle.squadId, battle);
         }
+        MigrateLegacyEquipment();
+    }
+
+    private void MigrateLegacyEquipment()
+    {
+        if (!grantDevelopmentEquipmentToLegacySquads || equipmentCatalog == null)
+            return;
+        SquadEquipmentService service = new SquadEquipmentService(equipmentCatalog);
+        foreach (SquadData squad in squads)
+        {
+            if (squad == null)
+                continue;
+            foreach (EquipmentItemDefinition definition in
+                     equipmentCatalog.EnumerateDefinitions())
+            {
+                if (definition == null || HasDefinition(squad, definition.StableId))
+                    continue;
+                service.GrantOwnedItem(squad,
+                    $"{squad.Id}-dev-item-{definition.StableId}", definition.StableId);
+            }
+            if (equipmentCatalog.Weapons.Count > 0)
+                service.TryEquip(squad,
+                    $"{squad.Id}-dev-item-{equipmentCatalog.Weapons[0].StableId}",
+                    EquipmentSlotKind.SquadWeapon);
+            if (equipmentCatalog.Weapons.Count > 1)
+                service.TryEquip(squad,
+                    $"{squad.Id}-dev-item-{equipmentCatalog.Weapons[1].StableId}",
+                    EquipmentSlotKind.CommanderWeapon);
+            squad.MarkEquipmentSchemaCurrent();
+        }
+    }
+
+    private static bool HasDefinition(SquadData squad, string definitionId)
+    {
+        for (int i = 0; i < squad.Equipment.OwnedItems.Count; i++)
+        {
+            EquipmentItemInstance item = squad.Equipment.OwnedItems[i];
+            if (item != null && string.Equals(item.DefinitionId, definitionId,
+                    StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 }

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1193f64164ec9844989acbedd613208, type: 3}
+  m_Name: DEV_WP_Falchion_04
+  m_EditorClassIdentifier: Assembly-CSharp::Weapon
+  stableId: test-wp-falchion-04
+  displayName: Falchion 04
+  description: Development weapon profile for persistent equipment and tactical combat.
+  weaponClass: 3
+  developmentOnly: 1
+  supportsSquadWeapon: 1
+  supportsCommanderWeapon: 1
+  previewSprite: {fileID: 21300000, guid: 24a5c52380bc51744a1d0655d71c3e20, type: 3}
+  weaponPrefab: {fileID: 919132149155446097, guid: c3779befaee6d154a8f9636e8406fb23, type: 3}
+  baseDamageBonus: 3
+  primaryScalingBonus: 0.05
+  strengthBonus: 0.5
+  accuracyBonus: 0.01
+  criticalChanceBonus: 0.03
+  criticalDamageBonus: 0.1

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1193f64164ec9844989acbedd613208, type: 3}
+  m_Name: DEV_WP_Mace_04
+  m_EditorClassIdentifier: Assembly-CSharp::Weapon
+  stableId: test-wp-mace-04
+  displayName: Mace 04
+  description: Development weapon profile for persistent equipment and tactical combat.
+  weaponClass: 5
+  developmentOnly: 1
+  supportsSquadWeapon: 1
+  supportsCommanderWeapon: 1
+  previewSprite: {fileID: 21300000, guid: d898f3eeec7b6f746a26e751f45921fa, type: 3}
+  weaponPrefab: {fileID: 919132149155446097, guid: 27f1e09de6144914a9e7714358290e32, type: 3}
+  baseDamageBonus: 4
+  primaryScalingBonus: 0.05
+  strengthBonus: 1
+  accuracyBonus: 0
+  criticalChanceBonus: 0.01
+  criticalDamageBonus: 0.1

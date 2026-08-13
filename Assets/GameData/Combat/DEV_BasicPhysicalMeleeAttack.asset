@@ -18,6 +18,7 @@ MonoBehaviour:
   damageType: 0
   distribution: 0
   delivery: 0
+  weaponSlot: 0
   baseDamage: 2
   actionPointCost: 2
   minimumRange: 1

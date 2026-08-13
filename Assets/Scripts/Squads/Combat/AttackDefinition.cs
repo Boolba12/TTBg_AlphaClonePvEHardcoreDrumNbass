@@ -38,6 +38,7 @@ public sealed class AttackDefinition : ScriptableObject
     [SerializeField] private SquadDamageDistribution distribution =
         SquadDamageDistribution.SingleTarget;
     [SerializeField] private BattleAttackDelivery delivery = BattleAttackDelivery.Melee;
+    [SerializeField] private EquipmentSlotKind weaponSlot = EquipmentSlotKind.SquadWeapon;
     [SerializeField, Min(0)] private int baseDamage = 2;
     [SerializeField, Min(0)] private int actionPointCost = 2;
     [SerializeField, Min(0)] private int minimumRange = 1;
@@ -57,6 +58,7 @@ public sealed class AttackDefinition : ScriptableObject
     public BattleDamageType DamageType => damageType;
     public SquadDamageDistribution Distribution => distribution;
     public BattleAttackDelivery Delivery => delivery;
+    public EquipmentSlotKind WeaponSlot => weaponSlot;
     public int BaseDamage => baseDamage;
     public int ActionPointCost => actionPointCost;
     public int MinimumRange => minimumRange;
@@ -108,6 +110,7 @@ public sealed class AttackDefinition : ScriptableObject
         damageType = BattleDamageType.Physical;
         distribution = SquadDamageDistribution.SingleTarget;
         delivery = BattleAttackDelivery.Melee;
+        weaponSlot = EquipmentSlotKind.SquadWeapon;
         baseDamage = Mathf.Max(0, configuredBaseDamage);
         actionPointCost = Mathf.Max(0, configuredActionPointCost);
         minimumRange = 1;
@@ -130,7 +133,8 @@ public sealed class AttackDefinition : ScriptableObject
         float strengthScaling,
         SquadDamageDistribution configuredDistribution,
         Sprite configuredPreview,
-        GameObject configuredModel)
+        GameObject configuredModel,
+        EquipmentSlotKind configuredWeaponSlot = EquipmentSlotKind.SquadWeapon)
     {
         stableId = id;
         displayName = configuredDisplayName;
@@ -138,6 +142,7 @@ public sealed class AttackDefinition : ScriptableObject
         damageType = BattleDamageType.Physical;
         distribution = configuredDistribution;
         delivery = BattleAttackDelivery.Melee;
+        weaponSlot = configuredWeaponSlot;
         baseDamage = Mathf.Max(0, configuredBaseDamage);
         actionPointCost = Mathf.Max(0, configuredActionPointCost);
         minimumRange = 1;
@@ -151,5 +156,8 @@ public sealed class AttackDefinition : ScriptableObject
         previewSprite = configuredPreview;
         modelPrefab = configuredModel;
     }
+
+    public void SetDevelopmentWeaponSlot(EquipmentSlotKind configuredWeaponSlot) =>
+        weaponSlot = configuredWeaponSlot;
 #endif
 }

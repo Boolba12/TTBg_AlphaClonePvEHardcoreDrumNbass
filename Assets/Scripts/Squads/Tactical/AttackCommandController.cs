@@ -185,6 +185,7 @@ public sealed class AttackCommandController : MonoBehaviour
         string state = selected
             ? "Choose an enemy squad"
             : validation.IsValid ? "Select a target" : validation.Reason;
+        Sprite weaponPreview = turnController.ActiveSquad?.Runtime?.Equipment?.SquadWeapon?.PreviewSprite;
         attackAction.RenderCommand(
             "Attack",
             hotkey,
@@ -192,7 +193,7 @@ public sealed class AttackCommandController : MonoBehaviour
             interactable,
             selected,
             validation.IsValid ? state : validation.Reason,
-            definition?.PreviewSprite);
+            weaponPreview != null ? weaponPreview : definition?.PreviewSprite);
     }
 
     public void SetBattleCommandsEnabled(bool enabled)

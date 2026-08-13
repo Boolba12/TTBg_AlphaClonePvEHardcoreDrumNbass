@@ -1285,6 +1285,10 @@ public static class SquadBattleSceneSmokeRunner
 
         enemy.AttackTarget.RequestConfirm();
         BattleAttackResult result = attackCommands.LastResult;
+        Require(result != null &&
+                result.WeaponDefinitionId ==
+                player.Runtime.Equipment.SquadWeapon?.DefinitionId,
+            "Production basic attack did not use the immutable Squad Weapon snapshot.");
         Require(result != null && result.WasExecuted && result.Hit && !result.Critical,
             "Root target confirmation did not produce the injected deterministic hit.");
         Require(attackCommands.AttackCommandCount == expectedAttackCount,

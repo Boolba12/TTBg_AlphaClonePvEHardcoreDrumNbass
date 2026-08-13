@@ -49,7 +49,8 @@ public sealed class SquadBattleController : MonoBehaviour
         BattleSide side,
         SquadControlType controlType,
         int sequence,
-        SquadFormationPresentation presentation = null)
+        SquadFormationPresentation presentation = null,
+        EquipmentDefinitionCatalog equipmentCatalog = null)
     {
         if (!AssignBattleContext(side, controlType, sequence))
             return false;
@@ -63,7 +64,7 @@ public sealed class SquadBattleController : MonoBehaviour
         if (!gridAnchor.PlaceAtCell(mapGenerator, mapRenderer, cell))
             return false;
 
-        return InitializeInternal(data, restoredState, presentation);
+        return InitializeInternal(data, restoredState, presentation, equipmentCatalog);
     }
 
     public bool AssignBattleContext(
@@ -101,7 +102,8 @@ public sealed class SquadBattleController : MonoBehaviour
     private bool InitializeInternal(
         SquadData data,
         SquadBattleState restoredState,
-        SquadFormationPresentation presentation = null)
+        SquadFormationPresentation presentation = null,
+        EquipmentDefinitionCatalog equipmentCatalog = null)
     {
         if (Runtime != null)
         {
@@ -116,7 +118,16 @@ public sealed class SquadBattleController : MonoBehaviour
             return false;
         }
 
-        Runtime = new SquadBattleRuntime(data, restoredState);
+        try
+        {
+            Runtime = new SquadBattleRuntime(
+                data, restoredState, equipmentCatalog: equipmentCatalog);
+        }
+        catch (System.ArgumentException exception)
+        {
+            Debug.LogError($"SquadBattleController: runtime initialization failed. {exception.Message}", this);
+            return false;
+        }
         Runtime.OnSquadDefeated += HandleSquadDefeated;
         if (gridAnchor != null)
             gridAnchor.CellChanged += HandleCellChanged;

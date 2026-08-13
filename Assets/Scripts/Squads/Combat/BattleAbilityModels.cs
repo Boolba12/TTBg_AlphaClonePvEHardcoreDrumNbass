@@ -118,6 +118,7 @@ public sealed class BattleAbilityResult
     public string CasterSquadId { get; internal set; }
     public string AbilityId { get; internal set; }
     public string TargetSquadId { get; internal set; }
+    public string WeaponDefinitionId { get; internal set; }
     public bool WasExecuted { get; internal set; }
     public int ActionPointsSpent { get; internal set; }
     public int CooldownApplied { get; internal set; }
@@ -142,6 +143,7 @@ public sealed class BattleAbilityResult
         Hit = attack.Hit;
         Critical = attack.Critical;
         Damage = attack.AppliedDamage;
+        WeaponDefinitionId = attack.WeaponDefinitionId;
         CommanderDefeated = attack.CommanderDefeated;
         SquadDefeated = attack.SquadDefeated;
         foreach (string id in attack.DefeatedWarriorIds)

@@ -42,7 +42,8 @@ public sealed class PreBattleSquadCardView : MonoBehaviour
         PreBattleSquadOption option,
         Sprite portrait,
         bool selected,
-        Action<string> onSelected)
+        Action<string> onSelected,
+        bool allowUnavailableSelection = false)
     {
         Unbind();
         squadId = option?.SquadId ?? string.Empty;
@@ -71,7 +72,8 @@ public sealed class PreBattleSquadCardView : MonoBehaviour
         }
         if (selectButton != null)
         {
-            selectButton.interactable = option != null && option.IsAvailable;
+            selectButton.interactable = option != null &&
+                (option.IsAvailable || allowUnavailableSelection);
             selectButton.onClick.AddListener(HandleSelected);
         }
         SetSelected(selected);

@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -9,6 +10,12 @@ public sealed class EquipmentSlotView : MonoBehaviour
     [SerializeField] private Image icon;
     [SerializeField] private TMP_Text emptyLabel;
     [SerializeField] private Button button;
+
+    private EquipmentSlotKind slot;
+    private Action<EquipmentSlotKind> selected;
+
+    public EquipmentSlotKind Slot => slot;
+    public Button Button => button;
 
     public void Configure(
         PurgatoryUITheme configuredTheme,
@@ -40,6 +47,24 @@ public sealed class EquipmentSlotView : MonoBehaviour
         }
         if (button != null)
             button.interactable = model != null && model.interactable;
+    }
+
+    public void Bind(EquipmentSlotKind configuredSlot,
+        EquipmentSlotPresentationModel model, Action<EquipmentSlotKind> onSelected)
+    {
+        button?.onClick.RemoveListener(HandleSelected);
+        slot = configuredSlot;
+        selected = onSelected;
+        Render(model);
+        button?.onClick.AddListener(HandleSelected);
+    }
+
+    private void HandleSelected() => selected?.Invoke(slot);
+
+    private void OnDestroy()
+    {
+        button?.onClick.RemoveListener(HandleSelected);
+        selected = null;
     }
 
     public void ApplyTheme()

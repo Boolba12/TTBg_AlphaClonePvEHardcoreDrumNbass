@@ -42,7 +42,8 @@ public static class BattleAbilityStageInstaller
             0.85f,
             SquadDamageDistribution.SingleTarget,
             swordPreview,
-            swordModel);
+            swordModel,
+            EquipmentSlotKind.CommanderWeapon);
         AttackDefinition sweepEffect = LoadOrCreate<AttackDefinition>(
             DataRoot + "/DEV_SweepingBlow_Attack.asset");
         sweepEffect.ConfigureDevelopmentAbilityEffect(

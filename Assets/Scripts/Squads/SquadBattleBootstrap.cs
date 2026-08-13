@@ -15,6 +15,7 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
     [SerializeField] private SquadBattleController squadBattlePrefab;
     [SerializeField] private Transform squadContainer;
     [SerializeField] private SquadSaveParticipant squadRepository;
+    [SerializeField] private EquipmentDefinitionCatalog equipmentCatalog;
 
     [Header("Participant presentation")]
     [Tooltip("Explicit presentation for the player participant slot; not inferred from side or object name.")]
@@ -166,6 +167,46 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         return ValidateDevelopmentFallback(out reason);
     }
 
+#if UNITY_EDITOR
+    public void ConfigureDevelopmentFallbackEquipment(
+        EquipmentDefinitionCatalog configuredCatalog)
+    {
+        equipmentCatalog = configuredCatalog;
+        ConfigureFallbackEquipment(developmentPlayerSquad, configuredCatalog);
+        ConfigureFallbackEquipment(developmentEnemySquad, configuredCatalog);
+    }
+
+    private static void ConfigureFallbackEquipment(
+        SquadData squad,
+        EquipmentDefinitionCatalog catalog)
+    {
+        if (squad == null || catalog == null) return;
+        SquadEquipmentService service = new SquadEquipmentService(catalog);
+        foreach (EquipmentItemDefinition definition in catalog.EnumerateDefinitions())
+        {
+            bool exists = false;
+            foreach (EquipmentItemInstance item in squad.Equipment.OwnedItems)
+            {
+                if (item != null && item.DefinitionId == definition.StableId)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists)
+                service.GrantOwnedItem(squad,
+                    $"{squad.Id}-dev-item-{definition.StableId}", definition.StableId);
+        }
+        if (string.IsNullOrWhiteSpace(squad.Equipment.SquadWeaponInstanceId))
+            service.TryEquip(squad, $"{squad.Id}-dev-item-test-wp-sword-01",
+                EquipmentSlotKind.SquadWeapon);
+        if (string.IsNullOrWhiteSpace(squad.Equipment.CommanderWeaponInstanceId))
+            service.TryEquip(squad, $"{squad.Id}-dev-item-test-wp-dagger-01",
+                EquipmentSlotKind.CommanderWeapon);
+        squad.MarkEquipmentSchemaCurrent();
+    }
+#endif
+
     public void Configure(
         SquadBattleController prefab,
         Transform container,
@@ -175,7 +216,8 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         SquadData enemyFallback,
         bool developmentLogsEnabled = true,
         SquadFormationPresentation playerPresentation = null,
-        SquadFormationPresentation enemyPresentation = null)
+        SquadFormationPresentation enemyPresentation = null,
+        EquipmentDefinitionCatalog configuredEquipmentCatalog = null)
     {
         squadBattlePrefab = prefab;
         squadContainer = container;
@@ -186,6 +228,7 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
         enableDevelopmentLogs = developmentLogsEnabled;
         playerFormationPresentation = playerPresentation;
         enemyFormationPresentation = enemyPresentation;
+        equipmentCatalog = configuredEquipmentCatalog;
     }
 
     private bool SpawnSquad(
@@ -220,7 +263,8 @@ public sealed class SquadBattleBootstrap : MonoBehaviour
                 side,
                 controlType,
                 registrationSequence,
-                presentation))
+                presentation,
+                equipmentCatalog))
         {
             controller.gameObject.SetActive(false);
             DestroyObject(controller.gameObject);

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6292dfc47040fae40adf44b189881cb1, type: 3}
+  m_Name: DEV_WardenArmor
+  m_EditorClassIdentifier: Assembly-CSharp::ArmorDefinition
+  stableId: DEV_WardenArmor
+  displayName: DEV Warden Armor
+  description: Balanced development armor for physical and magical mitigation.
+  developmentOnly: 1
+  previewSprite: {fileID: -3810732560433638365, guid: 6ccb303d9a70de04ea01f69271c7c010, type: 2}
+  modelPrefab: {fileID: 0}
+  physicalArmorModifier: 0.16
+  magicalResistanceModifier: 0.07

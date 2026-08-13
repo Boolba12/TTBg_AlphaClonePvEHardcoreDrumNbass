@@ -23,6 +23,16 @@ public sealed class PreBattlePreparationView : MonoBehaviour
     [SerializeField] private TMP_Text selectedStats;
     [SerializeField] private TMP_Text equipmentSummary;
 
+    [Header("Equipment v2")]
+    [SerializeField] private EquipmentSlotView squadWeaponSlot;
+    [SerializeField] private EquipmentSlotView commanderWeaponSlot;
+    [SerializeField] private EquipmentSlotView armorSlot;
+    [SerializeField] private EquipmentSlotView accessorySlot;
+    [SerializeField] private RectTransform equipmentItemContent;
+    [SerializeField] private ItemPreviewCardView equipmentItemTemplate;
+    [SerializeField] private TMP_Text equipmentDetails;
+    [SerializeField] private Button unequipButton;
+
     [Header("Encounter")]
     [SerializeField] private TMP_Text encounterSummary;
     [SerializeField] private TMP_Text validationStatus;
@@ -33,17 +43,23 @@ public sealed class PreBattlePreparationView : MonoBehaviour
 
     private readonly List<PreBattleSquadCardView> cards =
         new List<PreBattleSquadCardView>();
+    private readonly List<ItemPreviewCardView> equipmentCards =
+        new List<ItemPreviewCardView>();
     private bool listenersBound;
 
     public event Action<string> SquadSelected;
     public event Action ConfirmRequested;
     public event Action CancelRequested;
+    public event Action<EquipmentSlotKind> EquipmentSlotSelected;
+    public event Action<string> EquipmentItemSelected;
+    public event Action UnequipRequested;
 
     public bool IsVisible => panelRoot != null && panelRoot.activeInHierarchy;
     public int CardCount => cards.Count;
     public Button ConfirmButton => confirmButton;
     public Button CancelButton => cancelButton;
     public string ValidationMessage => validationStatus != null ? validationStatus.text : string.Empty;
+    public int EquipmentCardCount => equipmentCards.Count;
 
     public void Configure(
         GameObject root,
@@ -82,6 +98,29 @@ public sealed class PreBattlePreparationView : MonoBehaviour
         Hide();
     }
 
+    public void ConfigureEquipment(EquipmentSlotView configuredSquadWeaponSlot,
+        EquipmentSlotView configuredCommanderWeaponSlot,
+        EquipmentSlotView configuredArmorSlot,
+        EquipmentSlotView configuredAccessorySlot,
+        RectTransform itemContent,
+        ItemPreviewCardView itemTemplate,
+        TMP_Text details,
+        Button configuredUnequipButton)
+    {
+        UnbindListeners();
+        squadWeaponSlot = configuredSquadWeaponSlot;
+        commanderWeaponSlot = configuredCommanderWeaponSlot;
+        armorSlot = configuredArmorSlot;
+        accessorySlot = configuredAccessorySlot;
+        equipmentItemContent = itemContent;
+        equipmentItemTemplate = itemTemplate;
+        equipmentDetails = details;
+        unequipButton = configuredUnequipButton;
+        if (equipmentSummary != null)
+            equipmentSummary.gameObject.SetActive(false);
+        BindListeners();
+    }
+
     public void Show(
         IReadOnlyList<PreBattleSquadOption> options,
         Func<string, Sprite> portraitResolver,
@@ -106,6 +145,7 @@ public sealed class PreBattlePreparationView : MonoBehaviour
         if (encounterSummary != null)
             encounterSummary.text = encounterText ?? "Encounter details unavailable.";
         SetSelected(null, null);
+        ClearEquipmentCards();
         SetValidation(cards.Count == 0
             ? "No persistent squads are available. Create or load a battle-ready squad first."
             : "Select one battle-ready squad.", false);
@@ -117,6 +157,64 @@ public sealed class PreBattlePreparationView : MonoBehaviour
             inputBlocker.interactable = true;
             inputBlocker.blocksRaycasts = true;
         }
+    }
+
+    public void RenderEquipment(SquadData squad, EquipmentDefinitionCatalog catalog,
+        SquadEquipmentService service, EquipmentSlotKind selectedSlot)
+    {
+        ClearEquipmentCards();
+        BindSlot(squadWeaponSlot, squad, service, EquipmentSlotKind.SquadWeapon,
+            "Squad Weapon", selectedSlot);
+        BindSlot(commanderWeaponSlot, squad, service, EquipmentSlotKind.CommanderWeapon,
+            "Commander Weapon", selectedSlot);
+        BindSlot(armorSlot, squad, service, EquipmentSlotKind.Armor,
+            "Armor", selectedSlot);
+        BindSlot(accessorySlot, squad, service, EquipmentSlotKind.Accessory,
+            "Accessory", selectedSlot);
+
+        if (equipmentItemTemplate != null)
+            equipmentItemTemplate.gameObject.SetActive(false);
+        if (squad?.Equipment?.OwnedItems != null && equipmentItemTemplate != null &&
+            equipmentItemContent != null)
+        {
+            string selectedInstance = squad.Equipment.GetEquippedInstanceId(selectedSlot);
+            for (int i = 0; i < squad.Equipment.OwnedItems.Count; i++)
+            {
+                EquipmentItemInstance item = squad.Equipment.OwnedItems[i];
+                EquipmentItemDefinition definition = null;
+                catalog?.TryGetDefinition(item?.DefinitionId, out definition);
+                bool compatible = definition != null && definition.SupportsSlot(selectedSlot);
+                if (!compatible)
+                    continue;
+                ItemPreviewCardView card = Instantiate(equipmentItemTemplate,
+                    equipmentItemContent);
+                card.gameObject.name = $"EquipmentItem_{item?.InstanceId}";
+                card.gameObject.SetActive(true);
+                card.BindEquipment(item, definition,
+                    new ItemPreviewCardState(item?.InstanceId == selectedInstance,
+                        IsEquipped(squad, item?.InstanceId), !compatible),
+                    HandleEquipmentItemSelected);
+                equipmentCards.Add(card);
+            }
+        }
+
+        EquipmentItemDefinition selectedDefinition =
+            service?.ResolveEquippedDefinition(squad, selectedSlot);
+        Weapon current = selectedDefinition as Weapon;
+        if (equipmentDetails != null)
+        {
+            equipmentDetails.text = selectedDefinition is not Weapon
+                ? BuildEquipmentDetails(selectedDefinition)
+                : current == null
+                ? $"{selectedSlot}\nNo compatible item equipped."
+                : $"{current.DisplayName} · {current.Class}\n" +
+                  $"Damage +{current.BaseDamageBonus}  Scaling +{current.PrimaryScalingBonus:0.##}\n" +
+                  $"STR +{current.StrengthBonus:0.##}  ACC +{current.AccuracyBonus:P0}  " +
+                  $"CRIT +{current.CriticalChanceBonus:P0}";
+        }
+        if (unequipButton != null)
+            unequipButton.interactable = squad != null &&
+                !string.IsNullOrWhiteSpace(squad.Equipment.GetEquippedInstanceId(selectedSlot));
     }
 
     public void SetSelected(PreBattleSquadOption option, Sprite portrait)
@@ -158,7 +256,7 @@ public sealed class PreBattlePreparationView : MonoBehaviour
         {
             equipmentSummary.text = option == null
                 ? "Equipment —"
-                : "Equipment\nWeapon: Not equipped\nArmor: Not equipped\nAccessory: Not equipped";
+                : "Select an equipment slot, then choose one owned item.";
         }
         if (confirmButton != null)
             confirmButton.interactable = option != null && option.IsAvailable;
@@ -188,6 +286,11 @@ public sealed class PreBattlePreparationView : MonoBehaviour
     private void HandleSquadSelected(string squadId) => SquadSelected?.Invoke(squadId);
     private void HandleConfirm() => ConfirmRequested?.Invoke();
     private void HandleCancel() => CancelRequested?.Invoke();
+    private void HandleEquipmentSlotSelected(EquipmentSlotKind slot) =>
+        EquipmentSlotSelected?.Invoke(slot);
+    private void HandleEquipmentItemSelected(string instanceId) =>
+        EquipmentItemSelected?.Invoke(instanceId);
+    private void HandleUnequip() => UnequipRequested?.Invoke();
 
     private void BindListeners()
     {
@@ -195,6 +298,7 @@ public sealed class PreBattlePreparationView : MonoBehaviour
             return;
         confirmButton?.onClick.AddListener(HandleConfirm);
         cancelButton?.onClick.AddListener(HandleCancel);
+        unequipButton?.onClick.AddListener(HandleUnequip);
         listenersBound = true;
     }
 
@@ -204,6 +308,7 @@ public sealed class PreBattlePreparationView : MonoBehaviour
             return;
         confirmButton?.onClick.RemoveListener(HandleConfirm);
         cancelButton?.onClick.RemoveListener(HandleCancel);
+        unequipButton?.onClick.RemoveListener(HandleUnequip);
         listenersBound = false;
     }
 
@@ -221,11 +326,65 @@ public sealed class PreBattlePreparationView : MonoBehaviour
         cards.Clear();
     }
 
+    private void BindSlot(EquipmentSlotView view, SquadData squad,
+        SquadEquipmentService service, EquipmentSlotKind slot, string label,
+        EquipmentSlotKind selectedSlot)
+    {
+        if (view == null) return;
+        EquipmentItemDefinition definition = service?.ResolveEquippedDefinition(squad, slot);
+        view.Bind(slot, new EquipmentSlotPresentationModel
+        {
+            slotId = slot.ToString(),
+            kind = slot,
+            label = selectedSlot == slot ? $"> {label}" : label,
+            icon = definition?.PreviewSprite,
+            occupied = definition != null,
+            interactable = squad != null
+        }, HandleEquipmentSlotSelected);
+    }
+
+    private static string BuildEquipmentDetails(EquipmentItemDefinition definition)
+    {
+        if (definition is ArmorDefinition armor)
+            return $"{armor.DisplayName} - Armor\n" +
+                   $"Physical Armor +{armor.PhysicalArmorModifier:P0}\n" +
+                   $"Magical Resistance +{armor.MagicalResistanceModifier:P0}";
+        if (definition is AccessoryDefinition accessory)
+            return $"{accessory.DisplayName} - Accessory\n" +
+                   $"Resolve +{accessory.ResolveModifier:0.##}  " +
+                   $"Initiative +{accessory.InitiativeModifier:0.##}\n" +
+                   $"Accuracy +{accessory.AccuracyModifier:P0}  " +
+                   $"Critical +{accessory.CriticalChanceModifier:P0}";
+        return "No compatible item equipped.";
+    }
+
+    private static bool IsEquipped(SquadData squad, string instanceId)
+    {
+        if (squad == null || string.IsNullOrWhiteSpace(instanceId)) return false;
+        foreach (EquipmentSlotKind slot in new[] { EquipmentSlotKind.SquadWeapon,
+                     EquipmentSlotKind.CommanderWeapon, EquipmentSlotKind.Armor,
+                     EquipmentSlotKind.Accessory })
+            if (squad.Equipment.GetEquippedInstanceId(slot) == instanceId) return true;
+        return false;
+    }
+
+    private void ClearEquipmentCards()
+    {
+        for (int i = equipmentCards.Count - 1; i >= 0; i--)
+        {
+            if (equipmentCards[i] == null) continue;
+            if (Application.isPlaying) Destroy(equipmentCards[i].gameObject);
+            else DestroyImmediate(equipmentCards[i].gameObject);
+        }
+        equipmentCards.Clear();
+    }
+
     private void OnEnable() => BindListeners();
     private void OnDisable() => UnbindListeners();
     private void OnDestroy()
     {
         UnbindListeners();
         ClearCards();
+        ClearEquipmentCards();
     }
 }

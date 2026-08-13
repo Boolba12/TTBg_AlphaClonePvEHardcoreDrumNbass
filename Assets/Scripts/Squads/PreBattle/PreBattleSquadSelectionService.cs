@@ -29,7 +29,8 @@ public sealed class PreBattleSquadOption
     public PreBattleSquadOption(
         SquadData squad,
         PreBattleSquadUnavailableReason unavailableReason,
-        string unavailableMessage)
+        string unavailableMessage,
+        EquipmentDefinitionCatalog equipmentCatalog = null)
     {
         SquadId = squad?.Id ?? string.Empty;
         CommanderId = squad?.Commander?.id ?? string.Empty;
@@ -38,7 +39,7 @@ public sealed class PreBattleSquadOption
         Status = squad?.Status ?? PersistentSquadStatus.InactiveNoWarriors;
         LivingWarriors = squad?.Warriors?.Count ?? 0;
         MaximumWarriors = SquadData.MaximumWarriors;
-        CalculatedStats = SquadStatsCalculator.Calculate(squad);
+        CalculatedStats = SquadStatsCalculator.Calculate(squad, equipmentCatalog);
         UnavailableReason = unavailableReason;
         UnavailableMessage = unavailableMessage ?? string.Empty;
     }
@@ -47,7 +48,8 @@ public sealed class PreBattleSquadOption
 public static class PreBattleSquadSelectionService
 {
     public static IReadOnlyList<PreBattleSquadOption> BuildOptions(
-        IReadOnlyList<SquadData> squads)
+        IReadOnlyList<SquadData> squads,
+        EquipmentDefinitionCatalog equipmentCatalog = null)
     {
         List<PreBattleSquadOption> options = new List<PreBattleSquadOption>();
         if (squads != null)
@@ -55,7 +57,8 @@ public static class PreBattleSquadSelectionService
             for (int i = 0; i < squads.Count; i++)
             {
                 Evaluate(squads[i], out PreBattleSquadUnavailableReason reason, out string message);
-                options.Add(new PreBattleSquadOption(squads[i], reason, message));
+                options.Add(new PreBattleSquadOption(
+                    squads[i], reason, message, equipmentCatalog));
             }
         }
 
