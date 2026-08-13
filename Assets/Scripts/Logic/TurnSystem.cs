@@ -75,8 +75,9 @@ public class TurnSystem : MonoBehaviour
         TryAutoAssignReferences();
         HookPlayerEvents();
 
-        if (enemyTurnRunning || battleLoadingTriggered)
-            return;
+        if (enemyTurnRunning || battleLoadingTriggered){
+            Debug.Log("TurnSystem: Enemy turn running or battle loading triggered, skipping update.");
+            return;}
 
         if (playerController == null || enemyController == null)
             return;
@@ -91,8 +92,9 @@ public class TurnSystem : MonoBehaviour
             return;
         }
 
-        if (playerController.IsMovementInProgress)
-            return;
+        if (playerController.IsMovementInProgress){
+            Debug.Log("TurnSystem: Player movement in progress, waiting for completion.");
+            return;}
 
         if (playerController.CurrentCell == lastResolvedPlayerCell)
             return;
@@ -153,6 +155,8 @@ public class TurnSystem : MonoBehaviour
 
     private IEnumerator RunEnemyTurn()
     {
+        Debug.Log("TurnSystem: Enemy turn started."); // Works inside global map enviorment
+
         enemyTurnRunning = true;
 
         if (playerController != null)

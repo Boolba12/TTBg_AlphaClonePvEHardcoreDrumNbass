@@ -912,7 +912,7 @@ MonoBehaviour:
   height: 150
   playableCount: 10000
   cellSize: 2
-  seed: 8676854
+  seed: 67
   autoGenerate: 0
   playableColor: {r: 0.18662621, g: 0.82641506, b: 0.17307939, a: 1}
   blockedColor: {r: 0.10943389, g: 0.09890346, b: 0.09890346, a: 1}
