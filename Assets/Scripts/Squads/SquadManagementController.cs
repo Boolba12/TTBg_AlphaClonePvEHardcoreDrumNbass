@@ -19,6 +19,8 @@ public sealed class SquadManagementController : MonoBehaviour
     private CommanderPortraitService portraitService;
     private string selectedSquadId;
     private string selectedItemInstanceId;
+    private string selectedAssignedWarriorId;
+    private string selectedReserveWarriorId;
     private EquipmentSlotKind selectedSlot = EquipmentSlotKind.SquadWeapon;
     private SquadManagementInventoryFilter filter = SquadManagementInventoryFilter.All;
     private bool listenersBound;
@@ -28,6 +30,8 @@ public sealed class SquadManagementController : MonoBehaviour
     public string SelectedItemInstanceId => selectedItemInstanceId;
     public EquipmentSlotKind SelectedSlot => selectedSlot;
     public SquadManagementInventoryFilter Filter => filter;
+    public string SelectedAssignedWarriorId => selectedAssignedWarriorId;
+    public string SelectedReserveWarriorId => selectedReserveWarriorId;
     public Button OpenButton => openButton;
 
     public void Configure(Button configuredOpenButton, SquadManagementView configuredView,
@@ -77,11 +81,13 @@ public sealed class SquadManagementController : MonoBehaviour
         selectedSquadId = options.Count > 0 ? options[0].SquadId : string.Empty;
         selectedSlot = EquipmentSlotKind.SquadWeapon;
         selectedItemInstanceId = string.Empty;
+        selectedAssignedWarriorId = string.Empty;
+        selectedReserveWarriorId = string.Empty;
         filter = SquadManagementInventoryFilter.All;
         view.SetFilter(filter);
         RefreshAll();
         view.SetOperationStatus(options.Count > 0
-            ? "Persistent squad data loaded. Composition is read-only in v1."
+            ? "Persistent squad and Reserve roster loaded."
             : "No persistent Player squads are available.", options.Count == 0);
         reason = null;
         return true;
@@ -92,6 +98,8 @@ public sealed class SquadManagementController : MonoBehaviour
         if (!IsOpen) return;
         view.Hide();
         selectedItemInstanceId = string.Empty;
+        selectedAssignedWarriorId = string.Empty;
+        selectedReserveWarriorId = string.Empty;
         turnSystem?.TrySetExternalModalOpen(false, out _);
     }
 
@@ -104,6 +112,8 @@ public sealed class SquadManagementController : MonoBehaviour
         }
         selectedSquadId = squadId;
         selectedItemInstanceId = string.Empty;
+        selectedAssignedWarriorId = string.Empty;
+        selectedReserveWarriorId = string.Empty;
         RefreshAll();
         reason = null;
         return true;
@@ -146,6 +156,59 @@ public sealed class SquadManagementController : MonoBehaviour
         return true;
     }
 
+    public bool TryAddSelectedWarrior(out string reason)
+    {
+        SquadRosterOperationResult result = managementService.TryAddWarrior(
+            selectedSquadId, selectedReserveWarriorId);
+        reason = result.Reason;
+        if (!result.Success)
+        {
+            view?.SetOperationStatus(reason, true);
+            return false;
+        }
+        selectedAssignedWarriorId = selectedReserveWarriorId;
+        selectedReserveWarriorId = string.Empty;
+        RefreshAll();
+        view.SetOperationStatus(result.Reason, false);
+        return true;
+    }
+
+    public bool TryRemoveSelectedWarrior(out string reason)
+    {
+        string removedId = selectedAssignedWarriorId;
+        SquadRosterOperationResult result = managementService.TryRemoveWarrior(
+            selectedSquadId, removedId);
+        reason = result.Reason;
+        if (!result.Success)
+        {
+            view?.SetOperationStatus(reason, true);
+            return false;
+        }
+        selectedAssignedWarriorId = string.Empty;
+        selectedReserveWarriorId = removedId;
+        RefreshAll();
+        view.SetOperationStatus(result.Reason, false);
+        return true;
+    }
+
+    public bool TryRotateSelectedWarriors(out string reason)
+    {
+        SquadRosterOperationResult result = managementService.TryRotateWarrior(
+            selectedSquadId, selectedAssignedWarriorId, selectedReserveWarriorId);
+        reason = result.Reason;
+        if (!result.Success)
+        {
+            view?.SetOperationStatus(reason, true);
+            return false;
+        }
+        string outgoing = selectedAssignedWarriorId;
+        selectedAssignedWarriorId = selectedReserveWarriorId;
+        selectedReserveWarriorId = outgoing;
+        RefreshAll();
+        view.SetOperationStatus(result.Reason, false);
+        return true;
+    }
+
     private void HandleOpen()
     {
         if (!TryOpen(out string reason) && !string.IsNullOrWhiteSpace(reason))
@@ -184,6 +247,31 @@ public sealed class SquadManagementController : MonoBehaviour
 
     private void HandleEquip() => TryEquipSelected(out _);
     private void HandleUnequip() => TryUnequipSelected(out _);
+    private void HandleAddWarrior() => TryAddSelectedWarrior(out _);
+    private void HandleRemoveWarrior() => TryRemoveSelectedWarrior(out _);
+    private void HandleRotateWarrior() => TryRotateSelectedWarriors(out _);
+
+    private void HandleAssignedWarriorSelected(string warriorId)
+    {
+        selectedAssignedWarriorId = warriorId;
+        RefreshRoster();
+        SquadRosterOperationResult result = managementService.PreviewRemove(
+            selectedSquadId, warriorId, out SquadCompositionStatPreview preview);
+        view.RenderCompositionPreview(result.Success
+            ? (SquadCompositionStatPreview?)preview : null);
+        if (!result.Success) view.SetOperationStatus(result.Reason, true);
+    }
+
+    private void HandleReserveWarriorSelected(string warriorId)
+    {
+        selectedReserveWarriorId = warriorId;
+        RefreshRoster();
+        SquadRosterOperationResult result = managementService.PreviewAdd(
+            selectedSquadId, warriorId, out SquadCompositionStatPreview preview);
+        view.RenderCompositionPreview(result.Success
+            ? (SquadCompositionStatPreview?)preview : null);
+        if (!result.Success) view.SetOperationStatus(result.Reason, true);
+    }
 
     private void HandleSave()
     {
@@ -195,7 +283,7 @@ public sealed class SquadManagementController : MonoBehaviour
         saveSystem.SaveGame();
         SaveOperationResult result = saveSystem.LastOperationResult;
         view.SetOperationStatus(result.Success
-            ? "Squad equipment and persistent state saved."
+            ? "Squad composition, Reserve, equipment and persistent state saved."
             : $"Save failed: {result.Error}", !result.Success);
     }
 
@@ -215,6 +303,8 @@ public sealed class SquadManagementController : MonoBehaviour
                 EquipmentSlotKind.Accessory), selectedSlot);
         view.SetUnequipAvailable(managementService.GetEquippedDefinition(
             selectedSquadId, selectedSlot) != null);
+        RefreshRoster();
+        view.RenderCompositionPreview(null);
         RefreshInventory();
         view.RenderItemPreview(ResolveDefinition(selectedItemInstanceId), null);
     }
@@ -223,6 +313,36 @@ public sealed class SquadManagementController : MonoBehaviour
     {
         view.RenderInventory(managementService.BuildInventory(selectedSquadId,
             filter, selectedSlot), selectedItemInstanceId);
+    }
+
+    private void RefreshRoster()
+    {
+        if (view == null || managementService == null)
+            return;
+        IReadOnlyList<SquadManagementWarriorEntry> assigned =
+            managementService.BuildAssignedWarriors(selectedSquadId);
+        IReadOnlyList<SquadManagementWarriorEntry> reserve =
+            managementService.BuildReserveWarriors();
+        view.RenderRoster(assigned, reserve,
+            selectedAssignedWarriorId, selectedReserveWarriorId);
+
+        SquadData squad = squadRepository?.GetSquad(selectedSquadId);
+        bool unlocked = squadRepository != null && !squadRepository.IsCompositionLocked;
+        bool commanderAvailable = squad?.Commander != null &&
+                                  squad.Status != PersistentSquadStatus.CommanderLost;
+        bool full = squad != null && squad.Warriors.Count >= SquadData.MaximumWarriors;
+        bool canAdd = unlocked && commanderAvailable && !full &&
+                      !string.IsNullOrWhiteSpace(selectedReserveWarriorId);
+        bool canRemove = unlocked && squad != null &&
+                         !string.IsNullOrWhiteSpace(selectedAssignedWarriorId);
+        bool canRotate = canRemove && commanderAvailable &&
+                         !string.IsNullOrWhiteSpace(selectedReserveWarriorId);
+        string reason = !unlocked ? "Composition is locked for the active battle."
+            : full ? "Squad is full."
+            : squad?.Status == PersistentSquadStatus.CommanderLost
+                ? "Commander lost — squad cannot receive or rotate Warriors."
+                : null;
+        view.SetRosterActions(canAdd, canRemove, canRotate, reason);
     }
 
     private EquipmentItemDefinition ResolveDefinition(string instanceId)
@@ -264,6 +384,11 @@ public sealed class SquadManagementController : MonoBehaviour
             view.UnequipRequested += HandleUnequip;
             view.SaveRequested += HandleSave;
             view.CloseRequested += Close;
+            view.AssignedWarriorSelected += HandleAssignedWarriorSelected;
+            view.ReserveWarriorSelected += HandleReserveWarriorSelected;
+            view.AddWarriorRequested += HandleAddWarrior;
+            view.RemoveWarriorRequested += HandleRemoveWarrior;
+            view.RotateWarriorRequested += HandleRotateWarrior;
         }
         listenersBound = true;
     }
@@ -282,6 +407,11 @@ public sealed class SquadManagementController : MonoBehaviour
             view.UnequipRequested -= HandleUnequip;
             view.SaveRequested -= HandleSave;
             view.CloseRequested -= Close;
+            view.AssignedWarriorSelected -= HandleAssignedWarriorSelected;
+            view.ReserveWarriorSelected -= HandleReserveWarriorSelected;
+            view.AddWarriorRequested -= HandleAddWarrior;
+            view.RemoveWarriorRequested -= HandleRemoveWarrior;
+            view.RotateWarriorRequested -= HandleRotateWarrior;
         }
         listenersBound = false;
     }

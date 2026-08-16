@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml;
@@ -46,10 +47,27 @@ public static class SquadBattleSceneSmokeRunner
     private const string RallyUsedKey = "SquadBattleSceneSmoke.RallyUsed";
     private const string PowerStrikeUsedKey = "SquadBattleSceneSmoke.PowerStrikeUsed";
     private const string SweepingBlowUsedKey = "SquadBattleSceneSmoke.SweepingBlowUsed";
+    private const string RangedUsedKey = "SquadBattleSceneSmoke.RangedUsed";
+    private const string ExpectAIRangedTurnKey =
+        "SquadBattleSceneSmoke.ExpectAIRangedTurn";
+    private const string AIRangedActionsBeforeKey =
+        "SquadBattleSceneSmoke.AIRangedActionsBefore";
     private const string MinimapInactivityStartKey =
         "SquadBattleSceneSmoke.MinimapInactivityStart";
     private const string RuntimeRegressionErrorKey =
         "SquadBattleSceneSmoke.RuntimeRegressionError";
+    private const string ManagementHandoffKey =
+        "SquadBattleSceneSmoke.ManagementHandoff";
+    private const string ExpectedSquadWeaponKey =
+        "SquadBattleSceneSmoke.ExpectedSquadWeapon";
+    private const string ExpectedCommanderWeaponKey =
+        "SquadBattleSceneSmoke.ExpectedCommanderWeapon";
+    private const string ExpectedArmorKey =
+        "SquadBattleSceneSmoke.ExpectedArmor";
+    private const string ExpectedAccessoryKey =
+        "SquadBattleSceneSmoke.ExpectedAccessory";
+    private const string ExpectedOwnedEquipmentKey =
+        "SquadBattleSceneSmoke.ExpectedOwnedEquipment";
     private const string SmokeSaveRoot = "Temp/BattleLifecycleSmoke";
     private const int MaximumApproachMoves = 12;
 
@@ -97,8 +115,45 @@ public static class SquadBattleSceneSmokeRunner
         SessionState.EraseBool(RallyUsedKey);
         SessionState.EraseBool(PowerStrikeUsedKey);
         SessionState.EraseBool(SweepingBlowUsedKey);
+        SessionState.EraseBool(RangedUsedKey);
+        SessionState.EraseBool(ExpectAIRangedTurnKey);
+        SessionState.EraseBool(ManagementHandoffKey);
+        EraseExpectedEquipment();
         SessionState.EraseString(RuntimeRegressionErrorKey);
         SessionState.SetInt(PhaseKey, 10);
+        RegisterUpdate();
+    }
+
+    public static void AdoptRunningBattleFromManagementSmoke()
+    {
+        if (!EditorApplication.isPlaying ||
+            SceneManager.GetActiveScene().name != "Raw_Alpha_BattleMode")
+        {
+            throw new InvalidOperationException(
+                "Lifecycle smoke can only adopt the running production battle scene.");
+        }
+
+        if (!File.Exists(RunRequestPath))
+            File.WriteAllText(RunRequestPath,
+                "Continue the management production flow through battle lifecycle.");
+        SessionState.SetBool(StartedKey, true);
+        SessionState.EraseBool(FinishedKey);
+        SessionState.EraseBool(PassedKey);
+        SessionState.EraseBool(StorageConfiguredKey);
+        SessionState.EraseBool(RallyUsedKey);
+        SessionState.EraseBool(PowerStrikeUsedKey);
+        SessionState.EraseBool(SweepingBlowUsedKey);
+        SessionState.EraseBool(RangedUsedKey);
+        SessionState.EraseBool(ExpectAIRangedTurnKey);
+        SessionState.SetBool(ManagementHandoffKey, true);
+        EraseExpectedEquipment();
+        SessionState.EraseString(RuntimeRegressionErrorKey);
+        SessionState.SetString(StartTimeKey,
+            EditorApplication.timeSinceStartup.ToString(
+                System.Globalization.CultureInfo.InvariantCulture));
+        SessionState.SetInt(PhaseKey, 10);
+        Application.logMessageReceived -= CaptureRuntimeRegressionError;
+        Application.logMessageReceived += CaptureRuntimeRegressionError;
         RegisterUpdate();
     }
 
@@ -223,9 +278,15 @@ public static class SquadBattleSceneSmokeRunner
         Require(
             mapBootstrap.CombatMode == BattleCombatMode.Squads,
             "BattleMapBootstrap is not in squad mode.");
+        bool managementHandoff = SessionState.GetBool(ManagementHandoffKey, false);
         Require(
-            mapBootstrap.UsedDevelopmentAutoConfirm,
-            "The scene did not use its configured production confirmation pathway.");
+            managementHandoff
+                ? mapBootstrap.UsedConfirmedPreBattleAutoConfirm &&
+                  !mapBootstrap.UsedDevelopmentAutoConfirm
+                : mapBootstrap.UsedDevelopmentAutoConfirm,
+            managementHandoff
+                ? "The adopted battle did not use confirmed production Pre-Battle startup."
+                : "The direct Raw smoke did not use its configured development startup pathway.");
 
         MapGenerator mapGenerator = mapBootstrap.mapGenerator;
         MapRenderer mapRenderer = mapBootstrap.mapRenderer;
@@ -321,9 +382,28 @@ public static class SquadBattleSceneSmokeRunner
                 UnityEngine.Object.FindObjectsByType<AbilityCommandController>(
                     FindObjectsInactive.Include).Length == 1 &&
                 UnityEngine.Object.FindObjectsByType<EnemyTacticalAIController>(
+                    FindObjectsInactive.Include).Length == 1 &&
+                UnityEngine.Object.FindObjectsByType<GridTacticalTerrainService>(
+                    FindObjectsInactive.Include).Length == 1 &&
+                UnityEngine.Object.FindObjectsByType<AttackRangePreviewView>(
                     FindObjectsInactive.Include).Length == 1,
             "Scene must contain exactly one owner for occupancy, selection, turns, " +
-            "movement, command mode, attack execution, ability execution, and Enemy AI.");
+            "movement, command mode, attack execution, ability execution, Enemy AI, " +
+            "logical tactical terrain, and ranged preview.");
+        BattleAttackService productionAttacks =
+            UnityEngine.Object.FindAnyObjectByType<BattleAttackService>();
+        SquadMovementService productionMovement =
+            UnityEngine.Object.FindAnyObjectByType<SquadMovementService>();
+        string rangedReason = null;
+        Require(productionAttacks.RangedAttack != null &&
+                productionAttacks.RangedAttack.Validate(out rangedReason) &&
+                productionAttacks.RangedAttack.Delivery == BattleAttackDelivery.Ranged &&
+                productionAttacks.RangedAttack.MinimumRange == 2 &&
+                productionAttacks.RangedAttack.MaximumRange == 8 &&
+                productionAttacks.RangedAttack.ActionPointCost == 3 &&
+                productionAttacks.TacticalTerrain != null &&
+                productionMovement.TacticalTerrain == productionAttacks.TacticalTerrain,
+            $"Production ranged/terrain contract is incomplete: {rangedReason}");
         BattleTurnController productionTurns =
             UnityEngine.Object.FindAnyObjectByType<BattleTurnController>();
         EnemyTacticalAIController productionAI =
@@ -475,12 +555,13 @@ public static class SquadBattleSceneSmokeRunner
             "Bottom action bar is not a single outer-frame body.");
         BattleActionControlView[] actions =
             actionBar.GetComponentsInChildren<BattleActionControlView>(true);
-        Require(actions.Length == 8,
-            "Bottom action bar does not expose eight production action controls.");
+        Require(actions.Length == 9,
+            "Bottom action bar does not expose nine production action controls.");
         Require(actions.Count(action => action.gameObject.name == "Move") == 1 &&
                 actions.Count(action => action.gameObject.name == "Attack") == 1 &&
+                actions.Count(action => action.gameObject.name == "Ranged") == 1 &&
                 actions.Count(action => action.gameObject.name == "EndTurn") == 1,
-            "Move, Attack, and EndTurn must each have one explicit HUD control.");
+            "Move, Attack, Ranged, and EndTurn must each have one explicit HUD control.");
         Require(actions.Count(action => action.gameObject.name == "PowerStrike") == 1 &&
                 actions.Count(action => action.gameObject.name == "SweepingBlow") == 1 &&
                 actions.Count(action => action.gameObject.name == "Rally") == 1,
@@ -528,6 +609,8 @@ public static class SquadBattleSceneSmokeRunner
             UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
         SquadBattleController player = squads.SpawnedControllers.Single(
             controller => controller.Side == BattleSide.Player);
+        if (SessionState.GetBool(ManagementHandoffKey, false))
+            CaptureExpectedEquipment(player.Runtime.Data);
         BattleTurnController turns =
             UnityEngine.Object.FindAnyObjectByType<BattleTurnController>();
 
@@ -802,6 +885,42 @@ public static class SquadBattleSceneSmokeRunner
             player.GridAnchor.CurrentCell,
             enemy.GridAnchor.CurrentCell,
             movement.AllowDiagonalMovement);
+        BattleAttackService attackService =
+            UnityEngine.Object.FindAnyObjectByType<BattleAttackService>();
+        AttackDefinition rangedDefinition = attackService?.RangedAttack;
+        if (!SessionState.GetBool(RangedUsedKey, false) && rangedDefinition != null &&
+            currentDistance >= rangedDefinition.MinimumRange &&
+            currentDistance <= rangedDefinition.MaximumRange)
+        {
+            BattleActionControlView endTurnAction = battleHud
+                .GetComponentsInChildren<BattleActionControlView>(true)
+                .Single(action => action.gameObject.name == "EndTurn");
+            BattleCommandModeController commandMode =
+                UnityEngine.Object.FindAnyObjectByType<BattleCommandModeController>();
+            if (EndPlayerTurnWhenActionPointsAreInsufficient(
+                    rangedDefinition.ActionPointCost,
+                    endTurnAction,
+                    commands,
+                    turns,
+                    enemy,
+                    commandMode))
+            {
+                return;
+            }
+            ExecuteProductionRangedAttack(
+                battleHud,
+                tacticalBootstrap,
+                player,
+                enemy,
+                movement,
+                commands,
+                attackCommands,
+                endTurnAction,
+                turns,
+                commandMode);
+            SessionState.SetBool(RangedUsedKey, true);
+            return;
+        }
         if (currentDistance == 1)
         {
             ExecuteProductionAttack(
@@ -833,6 +952,12 @@ public static class SquadBattleSceneSmokeRunner
                     candidate,
                     enemy.GridAnchor.CurrentCell,
                     movement.AllowDiagonalMovement);
+                if (!SessionState.GetBool(RangedUsedKey, false) &&
+                    rangedDefinition != null &&
+                    distance < rangedDefinition.MinimumRange)
+                {
+                    continue;
+                }
                 if (distance > chosenDistance ||
                     (distance == chosenDistance && chosenPlan != null &&
                      plan.ActionPointCost <= chosenPlan.ActionPointCost))
@@ -963,8 +1088,9 @@ public static class SquadBattleSceneSmokeRunner
         TacticalCameraController camera =
             UnityEngine.Object.FindAnyObjectByType<TacticalCameraController>();
         int turnFocusBefore = camera.TurnFocusCount;
+        int expectedEndTurnCount = commands.EndTurnCommandCount + 1;
         endTurnAction.Button.onClick.Invoke();
-        Require(commands.EndTurnCommandCount == expectedMovementCount &&
+        Require(commands.EndTurnCommandCount == expectedEndTurnCount &&
                 turns.ActiveSquad == enemy,
             "EndTurn HUD click did not advance to the next initiative entry exactly once.");
         Require(camera.TurnFocusCount == turnFocusBefore + 1 &&
@@ -982,7 +1108,7 @@ public static class SquadBattleSceneSmokeRunner
             "Tactical bootstrap ran more than once during production flow.");
         RequireNoRuntimeRegressionErrors();
 
-        SessionState.SetInt(ExpectedEndTurnCountKey, commands.EndTurnCommandCount);
+        SessionState.SetInt(ExpectedEndTurnCountKey, expectedEndTurnCount);
         SessionState.SetInt(PhaseKey, 2);
     }
 
@@ -999,12 +1125,16 @@ public static class SquadBattleSceneSmokeRunner
             UnityEngine.Object.FindAnyObjectByType<EnemyTacticalAIController>();
         GridOccupancyService occupancy =
             UnityEngine.Object.FindAnyObjectByType<GridOccupancyService>();
+        BattleCompletionController completion =
+            UnityEngine.Object.FindAnyObjectByType<BattleCompletionController>();
         SquadBattleController player = squadBootstrap.SpawnedControllers.Single(
             controller => controller.Side == BattleSide.Player);
         SquadBattleController enemy = squadBootstrap.SpawnedControllers.Single(
             controller => controller.Side == BattleSide.Enemy);
         int expectedMovementCount = SessionState.GetInt(ExpectedMovementCountKey, -1);
         int expectedEndTurnCount = SessionState.GetInt(ExpectedEndTurnCountKey, -1);
+        Require(completion != null && completion.State == BattleCompletionState.Running,
+            $"Battle reached '{completion?.State}' while smoke was waiting for the AI turn.");
         if (enemyAI == null || enemyAI.IsExecutingTurn || turns.ActiveSquad != player ||
             enemyAI.CompletedTurnCount < expectedEndTurnCount)
             return;
@@ -1028,13 +1158,21 @@ public static class SquadBattleSceneSmokeRunner
                            enemyAI.AbilityActionCount;
         Require(actionsAfter > actionsBefore,
             "Enemy Tactical AI did not commit a production action during this turn.");
+        if (SessionState.GetBool(ExpectAIRangedTurnKey, false))
+        {
+            int rangedBefore = SessionState.GetInt(AIRangedActionsBeforeKey, -1);
+            Require(enemyAI.RangedAttackActionCount > rangedBefore,
+                "Enemy Tactical AI did not reuse the production ranged attack while it was valid.");
+            SessionState.EraseBool(ExpectAIRangedTurnKey);
+        }
         int playerHPBefore = SessionState.GetInt(PlayerHPBeforeAITurnKey, -1);
         Vector2Int enemyCellBefore = new Vector2Int(
             SessionState.GetInt(EnemyCellXBeforeAITurnKey, int.MinValue),
             SessionState.GetInt(EnemyCellYBeforeAITurnKey, int.MinValue));
         Require(player.Runtime.State.CurrentSquadHP < playerHPBefore ||
-                enemy.GridAnchor.CurrentCell != enemyCellBefore,
-            "Enemy Tactical AI neither moved nor damaged its selected Player target.");
+                enemy.GridAnchor.CurrentCell != enemyCellBefore ||
+                actionsAfter > actionsBefore,
+            "Enemy Tactical AI neither moved nor committed a validated attack action.");
         Require(occupancy.TryGetOccupiedCell(enemy, out Vector2Int occupiedCell) &&
                 occupiedCell == enemy.GridAnchor.CurrentCell &&
                 occupancy.ReservationCount == 0,
@@ -1048,6 +1186,153 @@ public static class SquadBattleSceneSmokeRunner
         Require(tacticalBootstrap.SuccessfulInitializationCount == 1,
             "Tactical bootstrap ran more than once during the turn cycle.");
         SessionState.SetInt(PhaseKey, 0);
+    }
+
+    private static void ExecuteProductionRangedAttack(
+        BattleHUDController battleHud,
+        SquadBattleTacticalBootstrap tacticalBootstrap,
+        SquadBattleController player,
+        SquadBattleController enemy,
+        SquadMovementService movement,
+        MovementCommandController movementCommands,
+        AttackCommandController attackCommands,
+        BattleActionControlView endTurnAction,
+        BattleTurnController turns,
+        BattleCommandModeController commandMode)
+    {
+        BattleAttackService attacks =
+            UnityEngine.Object.FindAnyObjectByType<BattleAttackService>();
+        EnemyTacticalAIController enemyAI =
+            UnityEngine.Object.FindAnyObjectByType<EnemyTacticalAIController>();
+        GridTacticalTerrainService terrain = attacks?.TacticalTerrain;
+        AttackRangePreviewView rangePreview =
+            UnityEngine.Object.FindAnyObjectByType<AttackRangePreviewView>();
+        GridOccupancyService occupancy =
+            UnityEngine.Object.FindAnyObjectByType<GridOccupancyService>();
+        AttackDefinition ranged = attacks?.RangedAttack;
+        BattleActionControlView rangedAction = battleHud
+            .GetComponentsInChildren<BattleActionControlView>(true)
+            .Single(action => action.gameObject.name == "Ranged");
+        Require(attacks != null && attacks.IsInitialized && ranged != null &&
+                terrain != null && rangePreview != null && enemyAI != null,
+            "Production ranged combat owner, definition, terrain, preview, or AI is missing.");
+        Require(rangedAction.Button.interactable && rangedAction.DisplayedIcon != null,
+            "Ranged HUD control is unavailable or has no presentation preview.");
+        Require(!ranged.UsesEquippedWeapon && ranged.ModelPrefab == null,
+            "Development ranged action incorrectly claims the current melee equipment model.");
+
+        Require(terrain.SetRuntimeCellsForTests(
+                Array.Empty<GridTacticalTerrainCellDefinition>()),
+            "Could not establish the controlled clear tactical terrain state.");
+        attackCommands.RefreshAvailability();
+        int initialAP = player.Runtime.State.currentActionPoints;
+        int initialHP = enemy.Runtime.State.CurrentSquadHP;
+        int initialMovementCommands = movementCommands.MovementCommandCount;
+        int expectedAttackCommands = attackCommands.AttackCommandCount + 1;
+        IReadOnlyList<Vector2Int> line = GridLineOfSightService.BuildSupercoverLine(
+            player.GridAnchor.CurrentCell,
+            enemy.GridAnchor.CurrentCell);
+        Vector2Int blocker = line.Skip(1).First(cell =>
+            cell != enemy.GridAnchor.CurrentCell);
+        GridCoverResult facingCover = new GridCoverService(terrain).Evaluate(
+            player.GridAnchor.CurrentCell,
+            enemy.GridAnchor.CurrentCell);
+        Require(facingCover.EvaluatedCells.Count > 0,
+            "Directional target-adjacent cover did not expose a facing cell.");
+        Vector2Int coverCell = facingCover.EvaluatedCells[0];
+
+        rangedAction.Button.onClick.Invoke();
+        Require(attackCommands.IsAttackTargeting &&
+                attackCommands.ActiveAttackDefinition == ranged &&
+                commandMode.ActiveMode == BattleCommandMode.Attack &&
+                rangedAction.IsSelectedAction && rangePreview.RangeCellCount > 0,
+            "Ranged Button.onClick did not enter the shared production Attack mode.");
+
+        Require(terrain.SetRuntimeCellsForTests(new[]
+        {
+            new GridTacticalTerrainCellDefinition(
+                blocker, true, true, CoverType.Full)
+        }), "Could not install the controlled LOS blocker.");
+        BattleAttackPreview blocked = attackCommands.TryHoverTarget(enemy.AttackTarget);
+        Require(!blocked.IsValid && blocked.Validation.FailureReason ==
+                BattleAttackFailureReason.LineOfSightBlocked &&
+                blocked.LineOfSightStatus == LineOfSightStatus.Blocked &&
+                rangePreview.HasLinePreview &&
+                rangePreview.LastLineOfSightStatus == LineOfSightStatus.Blocked &&
+                player.Runtime.State.currentActionPoints == initialAP &&
+                enemy.Runtime.State.CurrentSquadHP == initialHP,
+            "Blocked ranged hover did not expose LOS failure without mutating AP or HP.");
+
+        Require(terrain.SetRuntimeCellsForTests(new[]
+        {
+            new GridTacticalTerrainCellDefinition(
+                coverCell, true, false, CoverType.Half)
+        }), "Could not install the controlled half-cover cell.");
+        BattleAttackPreview half = attackCommands.TryHoverTarget(enemy.AttackTarget);
+        Require(half.IsValid && half.CoverType == CoverType.Half &&
+                half.LineOfSightStatus == LineOfSightStatus.Clear &&
+                Mathf.Approximately(half.CoverHitModifier, -0.20f),
+            "Half-cover ranged hover did not expose the production modifier and clear LOS.");
+
+        Require(terrain.SetRuntimeCellsForTests(new[]
+        {
+            new GridTacticalTerrainCellDefinition(
+                coverCell, true, false, CoverType.Full)
+        }), "Could not install the controlled full-cover cell.");
+        BattleAttackPreview full = attackCommands.TryHoverTarget(enemy.AttackTarget);
+        Require(full.IsValid && full.CoverType == CoverType.Full &&
+                full.LineOfSightStatus == LineOfSightStatus.Clear &&
+                Mathf.Approximately(full.CoverHitModifier, -0.40f) &&
+                full.HitChance <= half.HitChance,
+            "Full cover did not remain LOS-clear or apply its stronger hit penalty.");
+
+        Require(terrain.SetRuntimeCellsForTests(new[]
+        {
+            new GridTacticalTerrainCellDefinition(
+                coverCell, true, false, CoverType.Half)
+        }), "Could not restore the committed half-cover cell.");
+        BattleAttackPreview committedPreview = attackCommands.TryHoverTarget(enemy.AttackTarget);
+        Require(battleHud.AbilityDetails.HasDetails &&
+                battleHud.AbilityDetails.CurrentAttackPreview.AttackId == ranged.StableId,
+            "Ability Info did not render the ranged range/LOS/cover preview.");
+        attacks.SetRandomSourceForTests(new SmokeBattleRandomSource(0f, 0.99f));
+        enemy.AttackTarget.RequestConfirm();
+        BattleAttackResult result = attackCommands.LastResult;
+        Require(result != null && result.Succeeded && result.Hit && !result.Critical &&
+                result.AttackId == ranged.StableId &&
+                result.LineOfSightStatus == LineOfSightStatus.Clear &&
+                result.CoverType == CoverType.Half &&
+                string.IsNullOrEmpty(result.WeaponDefinitionId),
+            "Ranged production confirm did not resolve through clear LOS and half cover.");
+        Require(attackCommands.AttackCommandCount == expectedAttackCommands &&
+                player.Runtime.State.currentActionPoints == initialAP - ranged.ActionPointCost &&
+                enemy.Runtime.State.CurrentSquadHP == initialHP - result.AppliedDamage &&
+                result.AppliedDamage == committedPreview.PredictedDamage,
+            "Ranged AP commit, deterministic preview, or existing damage resolver disagreed.");
+        Require(movementCommands.MovementCommandCount == initialMovementCommands &&
+                !movement.IsMoving && occupancy.OccupiedCellCount == 2 &&
+                commandMode.ActiveMode == BattleCommandMode.None &&
+                !attackCommands.IsAttackTargeting && !rangePreview.HasLinePreview &&
+                rangePreview.RangeCellCount == 0,
+            "Ranged UI interaction created movement or left command/preview state active.");
+        Require(terrain.SetRuntimeCellsForTests(
+                Array.Empty<GridTacticalTerrainCellDefinition>()),
+            "Could not clear controlled smoke terrain after ranged resolution.");
+        Require(tacticalBootstrap.SuccessfulInitializationCount == 1,
+            "Ranged flow initialized the tactical composition more than once.");
+
+        int expectedEndTurns = movementCommands.EndTurnCommandCount + 1;
+        SessionState.SetInt(AIRangedActionsBeforeKey, enemyAI.RangedAttackActionCount);
+        SessionState.SetBool(ExpectAIRangedTurnKey, true);
+        PrepareAITurnSmoke(player, enemy);
+        endTurnAction.Button.onClick.Invoke();
+        Require(movementCommands.EndTurnCommandCount == expectedEndTurns &&
+                turns.ActiveSquad == enemy,
+            "Ranged smoke did not hand the same ranged opportunity to Enemy AI.");
+        SessionState.SetInt(ExpectedMovementCountKey,
+            movementCommands.MovementCommandCount);
+        SessionState.SetInt(ExpectedEndTurnCountKey, expectedEndTurns);
+        SessionState.SetInt(PhaseKey, 2);
     }
 
     private static void ExecuteProductionAttack(
@@ -1539,7 +1824,10 @@ public static class SquadBattleSceneSmokeRunner
             AICommittedActionsBeforeKey,
             enemyAI.MovementActionCount + enemyAI.BasicAttackActionCount +
             enemyAI.AbilityActionCount);
-        attacks.SetRandomSourceForTests(new SmokeBattleRandomSource(0f, 0.99f));
+        bool shouldHit = SessionState.GetBool(ExpectAIRangedTurnKey, false);
+        attacks.SetRandomSourceForTests(new SmokeBattleRandomSource(
+            shouldHit ? 0f : 0.99f,
+            shouldHit ? 0f : 0.99f));
     }
 
     private static void ConfigureSmokeStorage()
@@ -1620,6 +1908,28 @@ public static class SquadBattleSceneSmokeRunner
                 receiver.LastOutcome.encounterId == expectedEncounterId &&
                 receiver.LastOutcome.resultType == BattleResultType.Victory,
             "first_try did not consume the expected BattleOutcome exactly once.");
+
+        if (SessionState.GetBool(ManagementHandoffKey, false))
+        {
+            TurnSystem overworldTurns =
+                UnityEngine.Object.FindAnyObjectByType<TurnSystem>();
+            Require(overworldTurns != null,
+                "Overworld TurnSystem is unavailable after battle return.");
+            if (overworldTurns.IsEnemyTurnRunning)
+                return;
+            if (overworldTurns.IsPreBattlePreparationOpen)
+            {
+                PreBattlePreparationView preparation =
+                    UnityEngine.Object.FindAnyObjectByType<PreBattlePreparationView>(
+                        FindObjectsInactive.Include);
+                Require(preparation?.CancelButton != null &&
+                        preparation.CancelButton.interactable,
+                    "Repeated overworld encounter could not be cancelled through production UI.");
+                preparation.CancelButton.onClick.Invoke();
+                return;
+            }
+        }
+
         Require(!BattleReturnContext.HasData && !BattleEncounterContext.HasEncounterData &&
                 !BattleSetupContext.IsConfirmed,
             "A battle-only or return context remained stale after overworld restore.");
@@ -1640,6 +1950,71 @@ public static class SquadBattleSceneSmokeRunner
                     persistentPlayer.Warriors.Select(warrior => warrior.id))
                 .SetEquals(playerResult.survivingWarriorIds),
             "Persistent Warrior membership was not restored from stable survivor IDs.");
+        Require(playerResult.defeatedWarriorIds.Count > 0,
+            "Controlled lifecycle smoke did not produce a Player Warrior casualty.");
+        foreach (string defeatedWarriorId in playerResult.defeatedWarriorIds)
+        {
+            Require(persistentPlayer.GetWarrior(defeatedWarriorId) == null &&
+                    repositories[0].GetReserveWarrior(defeatedWarriorId) == null &&
+                    repositories[0].DeceasedWarriorIds.Contains(defeatedWarriorId),
+                $"Defeated Warrior '{defeatedWarriorId}' returned to Squad or Reserve.");
+        }
+        Require(repositories[0].ValidateRosterInvariants(out string rosterError),
+            $"Post-battle persistent roster invariant failed: {rosterError}");
+        if (SessionState.GetBool(ManagementHandoffKey, false))
+            RequireEquipmentPreserved(persistentPlayer);
+
+        if (SessionState.GetBool(ManagementHandoffKey, false))
+        {
+            SquadManagementController management =
+                UnityEngine.Object.FindAnyObjectByType<SquadManagementController>(
+                    FindObjectsInactive.Include);
+            SquadManagementView managementView =
+                UnityEngine.Object.FindAnyObjectByType<SquadManagementView>(
+                    FindObjectsInactive.Include);
+            Require(management?.OpenButton != null && managementView != null,
+                "Squad Management was unavailable after battle return.");
+            management.OpenButton.onClick.Invoke();
+            if (!management.IsOpen || !managementView.IsVisible)
+            {
+                if (EditorApplication.timeSinceStartup - startTime > 90)
+                {
+                    management.TryOpen(out string openReason);
+                    throw new InvalidOperationException(
+                        $"SQUADS did not reopen after the overworld became idle: {openReason}");
+                }
+                return;
+            }
+            Require(management.TrySelectSquad(persistentPlayer.Id,
+                    out string selectionReason),
+                $"Returned equipped squad could not rebind Management: {selectionReason}");
+            Require(
+                    management.SelectedSquadId == persistentPlayer.Id,
+                "Squad Management did not reopen and bind the returned equipped squad.");
+            int survivorsBeforeReplacement = persistentPlayer.Warriors.Count;
+            WarriorRosterCardView reserveCard = UnityEngine.Object
+                .FindObjectsByType<WarriorRosterCardView>(
+                    FindObjectsInactive.Include, FindObjectsSortMode.None)
+                .FirstOrDefault(card => card.gameObject.activeInHierarchy &&
+                    card.name.StartsWith("ReserveWarrior_", StringComparison.Ordinal) &&
+                    card.GetComponentInParent<SquadManagementView>() != null);
+            Require(reserveCard?.SelectButton != null,
+                "No living Reserve Warrior was available for manual replenishment.");
+            string replacementId = reserveCard.WarriorId;
+            reserveCard.SelectButton.onClick.Invoke();
+            Require(managementView.AddWarriorButton.interactable,
+                "Post-battle Reserve selection did not enable Add.");
+            managementView.AddWarriorButton.onClick.Invoke();
+            Require(persistentPlayer.Warriors.Count == survivorsBeforeReplacement + 1 &&
+                    persistentPlayer.GetWarrior(replacementId) != null &&
+                    repositories[0].GetReserveWarrior(replacementId) == null &&
+                    persistentPlayer.IsBattleEligible,
+                "Manual post-battle replacement did not restore a BattleReady squad.");
+            managementView.SaveButton.onClick.Invoke();
+            Require(saveSystems[0].LastOperationResult.Success,
+                $"Post-battle replacement save failed: " +
+                $"{saveSystems[0].LastOperationResult.Error}");
+        }
 
         GameSaveData currentData = saveSystems[0].CurrentData;
         Require(currentData != null && currentData.sceneName == "first_try" &&
@@ -1649,7 +2024,11 @@ public static class SquadBattleSceneSmokeRunner
             section => section.key == repositories[0].SaveKey);
         SquadSavePayload savedSquads = JsonUtility.FromJson<SquadSavePayload>(squadSection.json);
         Require(savedSquads != null && savedSquads.activeBattles.Count == 0 &&
-                savedSquads.appliedBattleIds.Contains(expectedBattleId),
+                savedSquads.appliedBattleIds.Contains(expectedBattleId) &&
+                playerResult.defeatedWarriorIds.All(id =>
+                    savedSquads.deceasedWarriorIds.Contains(id)) &&
+                playerResult.defeatedWarriorIds.All(id =>
+                    savedSquads.reserveWarriors.All(warrior => warrior.id != id)),
             "Autosave persisted active battle runtime or omitted applied-result idempotency data.");
         Require(UnityEngine.Object.FindObjectsByType<EventSystem>(
                     FindObjectsInactive.Include).Length == 1,
@@ -1660,11 +2039,13 @@ public static class SquadBattleSceneSmokeRunner
         Finish(true,
             "Raw Alpha 32x32 production startup, tactical camera, minimap click/drag/zoom, " +
             "event-driven markers, viewport, ten-second collapse/reopen, movement, " +
+            "Ranged Button/LOS/Half-Full cover, Enemy ranged AI, " +
             "Rally, Power Strike, Sweeping Blow, " +
             "repeated physical attacks, casualties, " +
             "Commander defeat, idempotent completion, command lock, result ModalLayer, " +
-            "autosave, Continue, first_try restore, persistent squad state, encounter " +
-            "resolution, and one-shot return-context consumption passed.");
+            "autosave, Continue, first_try restore, deceased exclusion from Reserve, manual " +
+            "Reserve replacement, persistent save, encounter resolution, and one-shot " +
+            "return-context consumption passed.");
     }
 
     private sealed class SmokeBattleRandomSource : IBattleRandomSource
@@ -1752,6 +2133,10 @@ public static class SquadBattleSceneSmokeRunner
         SessionState.EraseBool(RallyUsedKey);
         SessionState.EraseBool(PowerStrikeUsedKey);
         SessionState.EraseBool(SweepingBlowUsedKey);
+        SessionState.EraseBool(RangedUsedKey);
+        SessionState.EraseBool(ExpectAIRangedTurnKey);
+        SessionState.EraseBool(ManagementHandoffKey);
+        EraseExpectedEquipment();
         SessionState.EraseString(StartTimeKey);
         SessionState.EraseString(ExpectedBattleIdKey);
         SessionState.EraseString(ExpectedEncounterIdKey);
@@ -1771,6 +2156,66 @@ public static class SquadBattleSceneSmokeRunner
         SessionState.EraseInt(AICommittedActionsBeforeKey);
         if (Application.isBatchMode)
             EditorApplication.Exit(passed ? 0 : 1);
+    }
+
+    private static void CaptureExpectedEquipment(SquadData squad)
+    {
+        SquadEquipmentState equipment = squad?.Equipment;
+        Require(equipment != null,
+            "Player squad equipment was unavailable before lifecycle execution.");
+        SessionState.SetString(ExpectedSquadWeaponKey,
+            equipment.SquadWeaponInstanceId ?? string.Empty);
+        SessionState.SetString(ExpectedCommanderWeaponKey,
+            equipment.CommanderWeaponInstanceId ?? string.Empty);
+        SessionState.SetString(ExpectedArmorKey,
+            equipment.ArmorInstanceId ?? string.Empty);
+        SessionState.SetString(ExpectedAccessoryKey,
+            equipment.AccessoryInstanceId ?? string.Empty);
+        SessionState.SetString(ExpectedOwnedEquipmentKey,
+            BuildEquipmentSignature(equipment));
+    }
+
+    private static void RequireEquipmentPreserved(SquadData squad)
+    {
+        SquadEquipmentState equipment = squad?.Equipment;
+        Require(equipment != null,
+            "Returned persistent squad has no equipment state.");
+        string expectedSquadWeapon = SessionState.GetString(
+            ExpectedSquadWeaponKey, string.Empty);
+        string expectedCommanderWeapon = SessionState.GetString(
+            ExpectedCommanderWeaponKey, string.Empty);
+        string expectedArmor = SessionState.GetString(ExpectedArmorKey, string.Empty);
+        string expectedAccessory = SessionState.GetString(
+            ExpectedAccessoryKey, string.Empty);
+        string expectedOwned = SessionState.GetString(
+            ExpectedOwnedEquipmentKey, string.Empty);
+        string actualOwned = BuildEquipmentSignature(equipment);
+        Require(equipment.SquadWeaponInstanceId == expectedSquadWeapon &&
+                equipment.CommanderWeaponInstanceId == expectedCommanderWeapon &&
+                equipment.ArmorInstanceId == expectedArmor &&
+                equipment.AccessoryInstanceId == expectedAccessory &&
+                actualOwned == expectedOwned,
+            "Casualties/autosave/return changed persistent equipment ownership or assignments. " +
+            $"Expected slots=[{expectedSquadWeapon},{expectedCommanderWeapon}," +
+            $"{expectedArmor},{expectedAccessory}], actual=[{equipment.SquadWeaponInstanceId}," +
+            $"{equipment.CommanderWeaponInstanceId},{equipment.ArmorInstanceId}," +
+            $"{equipment.AccessoryInstanceId}], expectedOwned='{expectedOwned}', " +
+            $"actualOwned='{actualOwned}'.");
+    }
+
+    private static string BuildEquipmentSignature(SquadEquipmentState equipment) =>
+        string.Join("|", equipment.OwnedItems
+            .Where(item => item != null)
+            .Select(item => $"{item.InstanceId}={item.DefinitionId}")
+            .OrderBy(value => value, StringComparer.Ordinal));
+
+    private static void EraseExpectedEquipment()
+    {
+        SessionState.EraseString(ExpectedSquadWeaponKey);
+        SessionState.EraseString(ExpectedCommanderWeaponKey);
+        SessionState.EraseString(ExpectedArmorKey);
+        SessionState.EraseString(ExpectedAccessoryKey);
+        SessionState.EraseString(ExpectedOwnedEquipmentKey);
     }
 
     private static void WriteResult(bool passed, string message)

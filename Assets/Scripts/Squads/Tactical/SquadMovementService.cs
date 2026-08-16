@@ -9,6 +9,7 @@ public sealed class SquadMovementService : MonoBehaviour
     [SerializeField] private MapRenderer mapRenderer;
     [SerializeField] private GridOccupancyService occupancy;
     [SerializeField] private BattleTurnController turnController;
+    [SerializeField] private GridTacticalTerrainService tacticalTerrain;
     [SerializeField] private bool allowDiagonalMovement = true;
     [SerializeField, Range(0.02f, 0.5f)] private float movementStepDuration = 0.12f;
 
@@ -23,6 +24,7 @@ public sealed class SquadMovementService : MonoBehaviour
     public SquadBattleController MovingSquad { get; private set; }
     public float MovementStepDuration => movementStepDuration;
     public bool AllowDiagonalMovement => allowDiagonalMovement;
+    public GridTacticalTerrainService TacticalTerrain => tacticalTerrain;
 
     public event Action<SquadMovementPlan> OnMovementStarted;
     public event Action<SquadMovementPlan> OnMovementCompleted;
@@ -36,10 +38,24 @@ public sealed class SquadMovementService : MonoBehaviour
         bool allowDiagonal,
         float stepDuration)
     {
+        Configure(generator, renderer, occupancyService, turns, tacticalTerrain,
+            allowDiagonal, stepDuration);
+    }
+
+    public void Configure(
+        MapGenerator generator,
+        MapRenderer renderer,
+        GridOccupancyService occupancyService,
+        BattleTurnController turns,
+        GridTacticalTerrainService configuredTacticalTerrain,
+        bool allowDiagonal,
+        float stepDuration)
+    {
         mapGenerator = generator;
         mapRenderer = renderer;
         occupancy = occupancyService;
         turnController = turns;
+        tacticalTerrain = configuredTacticalTerrain;
         allowDiagonalMovement = allowDiagonal;
         movementStepDuration = Mathf.Clamp(stepDuration, 0.02f, 0.5f);
     }
@@ -48,7 +64,8 @@ public sealed class SquadMovementService : MonoBehaviour
     {
         IsInitialized = mapGenerator != null && mapRenderer != null &&
                         occupancy != null && occupancy.IsInitialized &&
-                        turnController != null;
+                         turnController != null &&
+                         (tacticalTerrain == null || tacticalTerrain.Initialize());
         CommandsEnabled = IsInitialized;
         return IsInitialized;
     }
@@ -86,7 +103,7 @@ public sealed class SquadMovementService : MonoBehaviour
             start,
             destination,
             allowDiagonalMovement,
-            cell => cell == destination || occupancy.CanEnter(controller, cell),
+            cell => CanEnterCell(controller, cell),
             out path);
         if (!hasPath)
         {
@@ -103,7 +120,9 @@ public sealed class SquadMovementService : MonoBehaviour
         int cost = Mathf.Max(0, path.Count - 1);
         if (cost == 0)
             reason = "Choose a different destination cell.";
-        else if (!occupancy.CanEnter(controller, destination))
+        else if (tacticalTerrain != null && tacticalTerrain.BlocksMovement(destination))
+            reason = "Destination cell contains a solid tactical obstacle.";
+        else if (!CanEnterCell(controller, destination))
             reason = "Destination cell is occupied or reserved.";
         else if (cost > controller.Runtime.State.currentActionPoints)
             reason = $"Movement needs {cost} AP; only {controller.Runtime.State.currentActionPoints} remain.";
@@ -142,6 +161,12 @@ public sealed class SquadMovementService : MonoBehaviour
         movementRoutine = StartCoroutine(ExecuteMovement(currentPlan));
         OnMovementStarted?.Invoke(currentPlan);
         return true;
+    }
+
+    public bool CanEnterCell(SquadBattleController controller, Vector2Int cell)
+    {
+        return occupancy != null && occupancy.CanEnter(controller, cell) &&
+               (tacticalTerrain == null || !tacticalTerrain.BlocksMovement(cell));
     }
 
     public bool CancelActiveMovement()

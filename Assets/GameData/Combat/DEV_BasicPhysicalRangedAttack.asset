@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9052469b8d8f5f64db8fbd59c5be2f0f, type: 3}
+  m_Name: DEV_BasicPhysicalRangedAttack
+  m_EditorClassIdentifier: Assembly-CSharp::AttackDefinition
+  stableId: dev-basic-physical-ranged
+  displayName: Basic Ranged Attack
+  category: 0
+  damageType: 0
+  distribution: 0
+  delivery: 1
+  weaponSlot: 0
+  baseDamage: 2
+  actionPointCost: 3
+  minimumRange: 2
+  maximumRange: 8
+  primaryScalingStat: 1
+  primaryStatScaling: 0.5
+  criticalEnabled: 1
+  friendlyFire: 0
+  developmentOnly: 1
+  usesEquippedWeapon: 0
+  hotkey: 32
+  optionalWeaponReference: {fileID: 0}
+  previewSprite: {fileID: 21300000, guid: 4ba51b2057b67854e9ace99439253c64, type: 3}
+  modelPrefab: {fileID: 0}

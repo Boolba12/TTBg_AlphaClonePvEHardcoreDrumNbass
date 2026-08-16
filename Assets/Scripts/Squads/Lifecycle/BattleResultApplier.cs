@@ -22,6 +22,9 @@ public sealed class BattleResultApplier
     {
         if (repository == null)
             return BattleResultApplicationResult.Fail("Squad repository is missing.");
+        if (!repository.ValidateRosterInvariants(out string rosterError))
+            return BattleResultApplicationResult.Fail(
+                $"Persistent Player roster is invalid. {rosterError}");
         if (outcome == null || outcome.schemaVersion != BattleOutcome.CurrentSchemaVersion ||
             string.IsNullOrWhiteSpace(outcome.battleId))
         {
@@ -129,6 +132,12 @@ public sealed class BattleResultApplier
                         out string error))
                 {
                     throw new InvalidOperationException(error);
+                }
+                if (!repository.MarkWarriorsDeceased(
+                        plan.Result.defeatedWarriorIds,
+                        out string deceasedError))
+                {
+                    throw new InvalidOperationException(deceasedError);
                 }
                 plan.Result.commanderOutcome = plan.CommanderOutcome.outcomeType;
                 plan.Result.permanentDebuffId = plan.CommanderOutcome.permanentDebuffId;

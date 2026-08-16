@@ -47,6 +47,8 @@ public sealed class AttackDefinition : ScriptableObject
     [SerializeField, Min(0f)] private float primaryStatScaling = 0.5f;
     [SerializeField] private bool criticalEnabled = true;
     [SerializeField] private bool friendlyFire;
+    [SerializeField] private bool developmentOnly = true;
+    [SerializeField] private bool usesEquippedWeapon = true;
     [SerializeField] private Key hotkey = Key.A;
     [SerializeField] private BattleWeaponDefinition optionalWeaponReference;
     [SerializeField] private Sprite previewSprite;
@@ -67,6 +69,8 @@ public sealed class AttackDefinition : ScriptableObject
     public float PrimaryStatScaling => primaryStatScaling;
     public bool CriticalEnabled => criticalEnabled;
     public bool FriendlyFire => friendlyFire;
+    public bool DevelopmentOnly => developmentOnly;
+    public bool UsesEquippedWeapon => usesEquippedWeapon;
     public Key Hotkey => hotkey;
     public BattleWeaponDefinition OptionalWeaponReference => optionalWeaponReference;
     public Sprite PreviewSprite => previewSprite != null
@@ -87,8 +91,13 @@ public sealed class AttackDefinition : ScriptableObject
         else if (distribution != SquadDamageDistribution.SingleTarget &&
                  distribution != SquadDamageDistribution.Area)
             reason = "Attack damage distribution is unsupported.";
-        else if (damageType != BattleDamageType.Physical || delivery != BattleAttackDelivery.Melee)
-            reason = "Only physical melee attacks are supported in this stage.";
+        else if (damageType != BattleDamageType.Physical)
+            reason = "Only physical attacks are supported by the current combat pipeline.";
+        else if (delivery == BattleAttackDelivery.Melee &&
+                 (minimumRange != 1 || maximumRange != 1))
+            reason = "Melee attacks must use the canonical one-cell range.";
+        else if (delivery == BattleAttackDelivery.Ranged && minimumRange < 1)
+            reason = "Ranged attacks require a positive minimum range.";
         else
             reason = null;
         return reason == null;
@@ -119,6 +128,8 @@ public sealed class AttackDefinition : ScriptableObject
         primaryStatScaling = Mathf.Max(0f, strengthScaling);
         criticalEnabled = true;
         friendlyFire = false;
+        developmentOnly = true;
+        usesEquippedWeapon = true;
         hotkey = Key.A;
         optionalWeaponReference = null;
         previewSprite = configuredPreview;
@@ -151,6 +162,8 @@ public sealed class AttackDefinition : ScriptableObject
         primaryStatScaling = Mathf.Max(0f, strengthScaling);
         criticalEnabled = true;
         friendlyFire = false;
+        developmentOnly = true;
+        usesEquippedWeapon = true;
         hotkey = Key.None;
         optionalWeaponReference = null;
         previewSprite = configuredPreview;
@@ -159,5 +172,39 @@ public sealed class AttackDefinition : ScriptableObject
 
     public void SetDevelopmentWeaponSlot(EquipmentSlotKind configuredWeaponSlot) =>
         weaponSlot = configuredWeaponSlot;
+
+    public void ConfigureDevelopmentRanged(
+        string id,
+        string configuredDisplayName,
+        int configuredBaseDamage,
+        int configuredActionPointCost,
+        int configuredMinimumRange,
+        int configuredMaximumRange,
+        float dexterityScaling,
+        Sprite configuredPreview,
+        GameObject configuredModel)
+    {
+        stableId = id;
+        displayName = configuredDisplayName;
+        category = BattleAttackCategory.Basic;
+        damageType = BattleDamageType.Physical;
+        distribution = SquadDamageDistribution.SingleTarget;
+        delivery = BattleAttackDelivery.Ranged;
+        weaponSlot = EquipmentSlotKind.SquadWeapon;
+        baseDamage = Mathf.Max(0, configuredBaseDamage);
+        actionPointCost = Mathf.Max(0, configuredActionPointCost);
+        minimumRange = Mathf.Max(1, configuredMinimumRange);
+        maximumRange = Mathf.Max(minimumRange, configuredMaximumRange);
+        primaryScalingStat = AttackScalingStat.Dexterity;
+        primaryStatScaling = Mathf.Max(0f, dexterityScaling);
+        criticalEnabled = true;
+        friendlyFire = false;
+        developmentOnly = true;
+        usesEquippedWeapon = false;
+        hotkey = Key.R;
+        optionalWeaponReference = null;
+        previewSprite = configuredPreview;
+        modelPrefab = configuredModel;
+    }
 #endif
 }

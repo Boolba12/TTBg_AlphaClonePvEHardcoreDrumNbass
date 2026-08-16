@@ -241,7 +241,9 @@ public sealed class BattleAbilityFrameworkTests
             Is.EquivalentTo(new[] { "PowerStrike", "SweepingBlow", "Rally" }));
         BattleHUDController hud = FindInScene<BattleHUDController>(scene).Single();
         Assert.That(hud.GetComponentsInChildren<BattleActionControlView>(true).Length,
-            Is.EqualTo(8));
+            Is.EqualTo(9));
+        Assert.That(hud.GetComponentsInChildren<BattleActionControlView>(true)
+            .Count(control => control.gameObject.name == "Ranged"), Is.EqualTo(1));
     }
 
     private AbilitySetup CreateSetup()

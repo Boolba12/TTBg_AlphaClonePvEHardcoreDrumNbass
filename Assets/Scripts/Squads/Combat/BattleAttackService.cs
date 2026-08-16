@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -9,7 +10,9 @@ public sealed class BattleAttackService : MonoBehaviour
     [SerializeField] private BattleSquadSelectionController selectionController;
     [SerializeField] private SquadMovementService movementService;
     [SerializeField] private AttackDefinition basicAttack;
+    [SerializeField] private AttackDefinition rangedAttack;
     [SerializeField] private BattleCombatRules combatRules;
+    [SerializeField] private GridTacticalTerrainService tacticalTerrain;
     [SerializeField] private bool allowDiagonalRange = true;
     [SerializeField] private int battleRandomSeed = 42;
     [SerializeField] private bool enableDevelopmentLogs;
@@ -18,12 +21,17 @@ public sealed class BattleAttackService : MonoBehaviour
     private Func<bool> movementInProgress;
     private BattleTargetingService targetingService;
     private BattleAttackCalculator calculator;
+    private readonly List<AttackDefinition> attackDefinitions =
+        new List<AttackDefinition>(2);
 
     public bool IsInitialized { get; private set; }
     public bool IsExecuting { get; private set; }
     public bool CommandsEnabled { get; private set; } = true;
     public AttackDefinition BasicAttack => basicAttack;
+    public AttackDefinition RangedAttack => rangedAttack;
+    public IReadOnlyList<AttackDefinition> AttackDefinitions => attackDefinitions;
     public BattleCombatRules CombatRules => combatRules;
+    public GridTacticalTerrainService TacticalTerrain => tacticalTerrain;
     public BattleTargetingService TargetingService => targetingService;
     public BattleAttackCalculator Calculator => calculator;
 
@@ -45,17 +53,39 @@ public sealed class BattleAttackService : MonoBehaviour
         IBattleRandomSource configuredRandomSource = null,
         Func<bool> configuredMovementInProgress = null)
     {
+        Configure(bootstrap, turns, selection, movement, definition, rangedAttack, rules,
+            tacticalTerrain, allowDiagonal, randomSeed, configuredRandomSource,
+            configuredMovementInProgress);
+    }
+
+    public void Configure(
+        SquadBattleBootstrap bootstrap,
+        BattleTurnController turns,
+        BattleSquadSelectionController selection,
+        SquadMovementService movement,
+        AttackDefinition definition,
+        AttackDefinition configuredRangedAttack,
+        BattleCombatRules rules,
+        GridTacticalTerrainService configuredTacticalTerrain,
+        bool allowDiagonal,
+        int randomSeed,
+        IBattleRandomSource configuredRandomSource = null,
+        Func<bool> configuredMovementInProgress = null)
+    {
         squadBootstrap = bootstrap;
         turnController = turns;
         selectionController = selection;
         movementService = movement;
         basicAttack = definition;
+        rangedAttack = configuredRangedAttack;
         combatRules = rules;
+        tacticalTerrain = configuredTacticalTerrain;
         allowDiagonalRange = allowDiagonal;
         battleRandomSeed = randomSeed;
         randomSource = configuredRandomSource;
         movementInProgress = configuredMovementInProgress;
         IsInitialized = false;
+        attackDefinitions.Clear();
     }
 
     public bool Initialize()
@@ -68,8 +98,12 @@ public sealed class BattleAttackService : MonoBehaviour
             selectionController == null || !selectionController.IsInitialized ||
             movementService == null || !movementService.IsInitialized ||
             combatRules == null || basicAttack == null ||
-            !basicAttack.Validate(out reason))
+            !basicAttack.Validate(out reason) ||
+            (rangedAttack != null && !rangedAttack.Validate(out reason)) ||
+            (rangedAttack != null &&
+             (tacticalTerrain == null || !tacticalTerrain.Initialize())))
         {
+            reason ??= tacticalTerrain?.FailureReason;
             Debug.LogError(
                 $"BattleAttackService: initialization failed. {reason}",
                 this);
@@ -77,8 +111,19 @@ public sealed class BattleAttackService : MonoBehaviour
         }
 
         randomSource ??= new SeededBattleRandomSource(battleRandomSeed);
-        targetingService = new BattleTargetingService(allowDiagonalRange);
+        GridLineOfSightService lineOfSight = tacticalTerrain != null
+            ? new GridLineOfSightService(tacticalTerrain)
+            : null;
+        GridCoverService cover = tacticalTerrain != null
+            ? new GridCoverService(tacticalTerrain)
+            : null;
+        targetingService = new BattleTargetingService(
+            allowDiagonalRange, lineOfSight, cover);
         calculator = new BattleAttackCalculator(combatRules);
+        attackDefinitions.Clear();
+        attackDefinitions.Add(basicAttack);
+        if (rangedAttack != null && rangedAttack != basicAttack)
+            attackDefinitions.Add(rangedAttack);
         IsInitialized = true;
         CommandsEnabled = true;
         return true;
@@ -154,6 +199,10 @@ public sealed class BattleAttackService : MonoBehaviour
             target,
             definition,
             authority);
+        BattleAttackTargetEvaluation targetEvaluation =
+            targetingService != null && attacker != null && target != null && definition != null
+                ? targetingService.EvaluateTarget(attacker, target, definition)
+                : default;
         if (attacker == null || target == null || definition == null || calculator == null)
         {
             return new BattleAttackPreview(
@@ -170,13 +219,23 @@ public sealed class BattleAttackService : MonoBehaviour
                 target?.Runtime?.State?.CurrentSquadHP ?? 0,
                 target?.Runtime?.Stats.MaxHP ?? 0,
                 CountLivingWarriors(target?.Runtime),
-                attacker?.Runtime?.Equipment?.GetWeaponForAttack(definition)?.DefinitionId);
+                attacker?.Runtime?.Equipment?.GetWeaponForAttack(definition)?.DefinitionId,
+                targetEvaluation.GridDistance,
+                definition?.MinimumRange ?? 0,
+                definition?.MaximumRange ?? 0,
+                targetEvaluation.LineOfSight.Status,
+                targetEvaluation.Cover.CoverType,
+                combatRules?.GetCoverHitModifier(targetEvaluation.Cover.CoverType) ?? 0f);
         }
 
+        WeaponCombatSnapshot weapon = attacker.Runtime.Equipment.GetWeaponForAttack(definition);
+        float coverModifier = combatRules.GetCoverHitModifier(
+            targetEvaluation.Cover.CoverType);
         float hitChance = calculator.CalculateHitChance(
             attacker.Runtime.Stats,
-            target.Runtime.Stats);
-        WeaponCombatSnapshot weapon = attacker.Runtime.Equipment.GetWeaponForAttack(definition);
+            target.Runtime.Stats,
+            weapon,
+            coverModifier: coverModifier);
         float criticalChance = calculator.CalculateCriticalChance(
             attacker.Runtime.Stats,
             definition);
@@ -206,7 +265,13 @@ public sealed class BattleAttackService : MonoBehaviour
             target.Runtime.State.CurrentSquadHP,
             target.Runtime.Stats.MaxHP,
             CountLivingWarriors(target.Runtime),
-            weapon?.DefinitionId);
+            weapon?.DefinitionId,
+            targetEvaluation.GridDistance,
+            definition.MinimumRange,
+            definition.MaximumRange,
+            targetEvaluation.LineOfSight.Status,
+            targetEvaluation.Cover.CoverType,
+            coverModifier);
     }
 
     public bool TryExecuteAttack(
@@ -232,6 +297,18 @@ public sealed class BattleAttackService : MonoBehaviour
             return false;
         }
 
+        BattleAttackTargetEvaluation targetEvaluation =
+            targetingService.EvaluateTarget(attacker, target, definition);
+        if (!targetEvaluation.IsValid)
+        {
+            result.FailureReason = targetEvaluation.Validation.FailureReason;
+            result.FailureMessage = targetEvaluation.Validation.Reason;
+            return false;
+        }
+        result.GridDistance = targetEvaluation.GridDistance;
+        result.LineOfSightStatus = targetEvaluation.LineOfSight.Status;
+        result.CoverType = targetEvaluation.Cover.CoverType;
+
         IsExecuting = true;
         bool damageCommitted = false;
         try
@@ -247,9 +324,15 @@ public sealed class BattleAttackService : MonoBehaviour
             result.ActionPointsSpent = definition.ActionPointCost;
             Raise(OnAttackStarted, result);
 
+            WeaponCombatSnapshot weapon =
+                attacker.Runtime.Equipment.GetWeaponForAttack(definition);
             float hitChance = calculator.CalculateHitChance(
                 attacker.Runtime.Stats,
-                target.Runtime.Stats);
+                target.Runtime.Stats,
+                weapon,
+                coverModifier: combatRules.GetCoverHitModifier(
+                    targetEvaluation.Cover.CoverType));
+            result.HitChance = hitChance;
             result.Hit = randomSource.Next01() < hitChance;
             if (!result.Hit)
             {
@@ -267,7 +350,7 @@ public sealed class BattleAttackService : MonoBehaviour
                 target.Runtime.Stats,
                 definition,
                 result.Critical,
-                attacker.Runtime.Equipment.GetWeaponForAttack(definition));
+                weapon);
             result.RawDamage = damage.RawDamage;
             result.MitigatedDamage = damage.MitigatedDamage;
 

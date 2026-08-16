@@ -95,14 +95,36 @@ public sealed class EnemyTacticalDecisionService
         for (int i = 0; i < targetBuffer.Count; i++)
         {
             SquadBattleController target = targetBuffer[i];
-            if (attackService.ValidateCommand(
-                    actor,
-                    target,
-                    attackService.BasicAttack,
-                    BattleCommandAuthority.TacticalAI).IsValid)
+            AttackDefinition selectedAttack = null;
+            float selectedScore = float.MinValue;
+            IReadOnlyList<AttackDefinition> definitions = attackService.AttackDefinitions;
+            for (int j = 0; j < definitions.Count; j++)
             {
-                return EnemyTacticalDecision.Attack(actor, target);
+                AttackDefinition definition = definitions[j];
+                if (definition == null || !attackService.ValidateCommand(
+                        actor,
+                        target,
+                        definition,
+                        BattleCommandAuthority.TacticalAI).IsValid)
+                {
+                    continue;
+                }
+
+                BattleAttackPreview preview = attackService.PreviewAttack(
+                    actor, target, definition, BattleCommandAuthority.TacticalAI);
+                float score = preview.PredictedDamage + preview.HitChance * 10f -
+                              definition.ActionPointCost * 0.25f;
+                if (selectedAttack == null || score > selectedScore ||
+                    (Mathf.Approximately(score, selectedScore) && string.Compare(
+                        definition.StableId, selectedAttack.StableId,
+                        StringComparison.Ordinal) < 0))
+                {
+                    selectedAttack = definition;
+                    selectedScore = score;
+                }
             }
+            if (selectedAttack != null)
+                return EnemyTacticalDecision.Attack(actor, target, selectedAttack);
         }
 
         EnemyTacticalDecision powerStrike = FindOffensiveAbility(
@@ -149,9 +171,8 @@ public sealed class EnemyTacticalDecisionService
 
     private EnemyTacticalDecision FindMovement(SquadBattleController actor)
     {
-        AttackDefinition attack = attackService.BasicAttack;
         int availableActionPoints = actor.Runtime.State.currentActionPoints;
-        if (attack == null || availableActionPoints <= 0)
+        if (attackService.AttackDefinitions.Count == 0 || availableActionPoints <= 0)
             return null;
 
         Vector2Int start = actor.GridAnchor.CurrentCell;
@@ -159,20 +180,27 @@ public sealed class EnemyTacticalDecisionService
         {
             SquadBattleController target = targetBuffer[i];
             Vector2Int targetCell = target.GridAnchor.CurrentCell;
-            if (IsAttackCell(start, targetCell, attack))
+            if (FindAffordableGeometryAttack(
+                    actor, target, start, availableActionPoints) != null)
                 continue;
             bool found = GridPathfinder.TryBuildPathToNearest(
                 mapGenerator,
                 start,
                 movementService.AllowDiagonalMovement,
                 cell => cell != start && cell != targetCell &&
-                        IsAttackCell(cell, targetCell, attack) &&
-                        occupancy.CanEnter(actor, cell),
-                cell => occupancy.CanEnter(actor, cell),
+                        FindAffordableGeometryAttack(
+                            actor, target, cell, availableActionPoints) != null &&
+                        movementService.CanEnterCell(actor, cell),
+                cell => movementService.CanEnterCell(actor, cell),
                 Mathf.Max(0, mapGenerator.Width * mapGenerator.Height),
                 out List<Vector2Int> path,
-                out Vector2Int _);
+                out Vector2Int attackCell);
             if (!found)
+                continue;
+
+            AttackDefinition attack = FindAffordableGeometryAttack(
+                actor, target, attackCell, availableActionPoints);
+            if (attack == null)
                 continue;
 
             int fullPathCost = Mathf.Max(0, path.Count - 1);
@@ -198,32 +226,44 @@ public sealed class EnemyTacticalDecisionService
         return null;
     }
 
-    private bool IsAttackCell(
+    private AttackDefinition FindAffordableGeometryAttack(
+        SquadBattleController actor,
+        SquadBattleController target,
         Vector2Int candidate,
-        Vector2Int target,
-        AttackDefinition definition)
+        int availableActionPoints)
     {
-        int distance = BattleTargetingService.GetGridDistance(
-            candidate,
-            target,
-            movementService.AllowDiagonalMovement);
-        return distance >= definition.MinimumRange &&
-               distance <= definition.MaximumRange;
+        if (actor == null || target == null)
+            return null;
+        AttackDefinition best = null;
+        IReadOnlyList<AttackDefinition> definitions = attackService.AttackDefinitions;
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            AttackDefinition definition = definitions[i];
+            if (definition == null || definition.ActionPointCost > availableActionPoints ||
+                !attackService.TargetingService.EvaluateGridGeometry(
+                    candidate, target.GridAnchor.CurrentCell, definition).IsValid)
+            {
+                continue;
+            }
+            if (best == null || definition.ActionPointCost < best.ActionPointCost ||
+                (definition.ActionPointCost == best.ActionPointCost && string.Compare(
+                    definition.StableId, best.StableId, StringComparison.Ordinal) < 0))
+            {
+                best = definition;
+            }
+        }
+        return best;
     }
 
     private bool EnablesSameTurnBasicAttack(
         SquadBattleController actor,
         EnemyTacticalDecision movement)
     {
-        AttackDefinition attack = attackService.BasicAttack;
-        if (actor == null || movement?.Target == null || attack == null)
+        if (actor == null || movement?.Target == null)
             return false;
-        return movement.PathCost + attack.ActionPointCost <=
-               actor.Runtime.State.currentActionPoints &&
-               IsAttackCell(
-                   movement.Destination,
-                   movement.Target.GridAnchor.CurrentCell,
-                   attack);
+        int remaining = actor.Runtime.State.currentActionPoints - movement.PathCost;
+        return remaining >= 0 && FindAffordableGeometryAttack(
+            actor, movement.Target, movement.Destination, remaining) != null;
     }
 
     private void CollectTargets(SquadBattleController actor)

@@ -46,8 +46,11 @@ public sealed class SquadData : ICommanderPortraitTarget
     }
     public int EquipmentSchemaVersion => equipmentSchemaVersion;
     public PersistentSquadStatus Status => status;
+    public bool IsCompositionValid => commander != null && warriors != null &&
+                                      warriors.Count <= MaximumWarriors;
     public bool IsBattleEligible => status == PersistentSquadStatus.Active &&
-                                    warriors != null && warriors.Count >= MinimumWarriors;
+                                    IsCompositionValid &&
+                                    warriors.Count >= MinimumWarriors;
 
     public string CommanderPortraitId
     {
@@ -72,7 +75,9 @@ public sealed class SquadData : ICommanderPortraitTarget
         this.commander = commander;
         this.warriors = warriors != null ? new List<WarriorData>(warriors) : new List<WarriorData>();
         this.permanentModifiers = permanentModifiers ?? new SquadStatModifiers();
-        status = PersistentSquadStatus.Active;
+        status = this.warriors.Count >= MinimumWarriors
+            ? PersistentSquadStatus.Active
+            : PersistentSquadStatus.InactiveNoWarriors;
     }
 
     public bool TryAddWarrior(WarriorData warrior, bool battleActive, out string error)
@@ -88,6 +93,11 @@ public sealed class SquadData : ICommanderPortraitTarget
             error = "Warrior data is missing.";
             return false;
         }
+        if (status == PersistentSquadStatus.CommanderLost || commander == null)
+        {
+            error = "A squad without an available Commander cannot receive Warriors.";
+            return false;
+        }
         if (warriors.Count >= MaximumWarriors)
         {
             error = $"A squad cannot contain more than {MaximumWarriors} warriors.";
@@ -100,6 +110,7 @@ public sealed class SquadData : ICommanderPortraitTarget
         }
 
         warriors.Add(warrior);
+        status = PersistentSquadStatus.Active;
         error = null;
         return true;
     }
@@ -112,12 +123,6 @@ public sealed class SquadData : ICommanderPortraitTarget
             error = "Squad composition cannot be changed during battle.";
             return false;
         }
-        if (warriors.Count <= MinimumWarriors)
-        {
-            error = "A squad must retain at least one warrior.";
-            return false;
-        }
-
         int index = warriors.FindIndex(warrior => warrior != null && warrior.id == warriorId);
         if (index < 0)
         {
@@ -126,8 +131,62 @@ public sealed class SquadData : ICommanderPortraitTarget
         }
 
         warriors.RemoveAt(index);
+        if (warriors.Count == 0 && status != PersistentSquadStatus.CommanderLost)
+            status = PersistentSquadStatus.InactiveNoWarriors;
         error = null;
         return true;
+    }
+
+    public bool TryReplaceWarrior(
+        string assignedWarriorId,
+        WarriorData reserveWarrior,
+        bool battleActive,
+        out WarriorData removedWarrior,
+        out string error)
+    {
+        removedWarrior = null;
+        warriors ??= new List<WarriorData>();
+        if (battleActive)
+        {
+            error = "Squad composition cannot be changed during battle.";
+            return false;
+        }
+        if (status == PersistentSquadStatus.CommanderLost || commander == null)
+        {
+            error = "A squad without an available Commander cannot rotate Warriors.";
+            return false;
+        }
+        if (reserveWarrior == null || string.IsNullOrWhiteSpace(reserveWarrior.id))
+        {
+            error = "Reserve Warrior data is missing or invalid.";
+            return false;
+        }
+
+        int index = warriors.FindIndex(warrior =>
+            warrior != null && warrior.id == assignedWarriorId);
+        if (index < 0)
+        {
+            error = $"Warrior '{assignedWarriorId}' is not in this squad.";
+            return false;
+        }
+        if (ContainsMemberId(reserveWarrior.id))
+        {
+            error = $"Duplicate squad member ID '{reserveWarrior.id}'.";
+            return false;
+        }
+
+        removedWarrior = warriors[index];
+        warriors[index] = reserveWarrior;
+        status = PersistentSquadStatus.Active;
+        error = null;
+        return true;
+    }
+
+    public WarriorData GetWarrior(string warriorId)
+    {
+        if (warriors == null || string.IsNullOrWhiteSpace(warriorId))
+            return null;
+        return warriors.Find(warrior => warrior != null && warrior.id == warriorId);
     }
 
     public SquadValidationResult Validate()
@@ -144,6 +203,8 @@ public sealed class SquadData : ICommanderPortraitTarget
             errors.Add("Warrior collection is missing.");
         else if (status == PersistentSquadStatus.Active && warriors.Count < MinimumWarriors)
             errors.Add("An active squad requires at least one warrior.");
+        else if (status == PersistentSquadStatus.InactiveNoWarriors && warriors.Count > 0)
+            errors.Add("InactiveNoWarriors status requires an empty Warrior composition.");
         else if (warriors.Count > MaximumWarriors)
             errors.Add($"No more than {MaximumWarriors} warriors are allowed.");
 
@@ -297,9 +358,12 @@ public sealed class CommanderData
 public sealed class WarriorData
 {
     public string id;
+    public string displayName;
     public int maxHP = 1;
     public float strength;
     public float dexterity;
+
+    public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? id : displayName;
 
     public void Validate(List<string> errors)
     {

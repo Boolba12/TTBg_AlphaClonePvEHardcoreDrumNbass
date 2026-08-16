@@ -30,6 +30,11 @@ public static class PreBattleSceneSmokeRunner
     private const string RosterSnapshotKey = "PreBattleSmoke.RosterSnapshot";
     private const string RuntimeErrorKey = "PreBattleSmoke.RuntimeError";
     private const string ManagementVerifiedKey = "PreBattleSmoke.ManagementVerified";
+    private const string ManagementPhaseKey = "PreBattleSmoke.ManagementPhase";
+    private const string RemovedWarriorKey = "PreBattleSmoke.RemovedWarrior";
+    private const string AddedWarriorKey = "PreBattleSmoke.AddedWarrior";
+    private const string AssignmentSignatureKey = "PreBattleSmoke.AssignmentSignature";
+    private const string ReserveSignatureKey = "PreBattleSmoke.ReserveSignature";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void PreparePersistentRoster()
@@ -95,6 +100,11 @@ public static class PreBattleSceneSmokeRunner
         SessionState.EraseString(RuntimeErrorKey);
         SessionState.EraseString(RosterSnapshotKey);
         SessionState.EraseBool(ManagementVerifiedKey);
+        SessionState.SetInt(ManagementPhaseKey, 0);
+        SessionState.EraseString(RemovedWarriorKey);
+        SessionState.EraseString(AddedWarriorKey);
+        SessionState.EraseString(AssignmentSignatureKey);
+        SessionState.EraseString(ReserveSignatureKey);
         SessionState.SetInt(PhaseKey, 0);
         SessionState.SetInt(AttemptsKey, 0);
         RegisterUpdate();
@@ -173,8 +183,8 @@ public static class PreBattleSceneSmokeRunner
             if (turn.IsEnemyTurnRunning || player.IsMovementInProgress ||
                 turn.IsBattleLoadingTriggered)
                 return;
-            ValidateManagementProductionFlow(repository);
-            SessionState.SetBool(ManagementVerifiedKey, true);
+            if (ValidateManagementProductionFlow(repository))
+                SessionState.SetBool(ManagementVerifiedKey, true);
             return;
         }
         if (preparation.IsOpen)
@@ -309,6 +319,18 @@ public static class PreBattleSceneSmokeRunner
             $"Battle spawned '{player.SquadId}' instead of selected '{SelectedSquadId}'.");
         Require(player.Runtime.Data.Id == SelectedSquadId,
             "Battle runtime is not backed by the selected persistent SquadData identity.");
+        Require(BuildWarriorSignature(player.Runtime.Data.Warriors) ==
+                    SessionState.GetString(AssignmentSignatureKey, string.Empty),
+            "Battle snapshot did not use the exact Squad composition saved by Management.");
+        SquadSaveParticipant battleRepository =
+            UnityEngine.Object.FindAnyObjectByType<SquadSaveParticipant>();
+        Require(battleRepository != null &&
+                BuildWarriorSignature(battleRepository.ReserveWarriors) ==
+                    SessionState.GetString(ReserveSignatureKey, string.Empty),
+            "Battle restore changed the persistent Reserve composition.");
+        Require(!player.Runtime.Data.Warriors.Any(warrior =>
+                battleRepository.GetReserveWarrior(warrior.id) != null),
+            "A Reserve Warrior entered the battle runtime snapshot.");
         Require(player.Runtime.Equipment.SquadWeapon?.DefinitionId == SelectedWeaponId,
             "Battle runtime did not snapshot the Squad Weapon selected in Pre-Battle UI.");
         Require(player.Runtime.Equipment.ArmorDefinitionId == SelectedArmorId,
@@ -330,14 +352,14 @@ public static class PreBattleSceneSmokeRunner
             FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 1,
             "Raw battle does not contain exactly one EventSystem.");
         RequireNoRuntimeErrors();
-        Finish(true,
-            "first_try SQUADS button opened persistent Management UI; production slot/item/" +
-            "Equip controls applied weapon, Armor and Accessory, Save succeeded, close/reopen " +
-            "preserved state; Pre-Battle then entered the 32x32 battle with the same immutable " +
-            "equipment snapshot and calculated modifiers.");
+        HandoffToLifecycle(
+            "first_try SQUADS opened persistent Management; production Remove/Add moved the " +
+            "same stable Warriors between Squad and Reserve, Save/Load restored exact " +
+            "assignments, equipment controls preserved weapon/Armor/Accessory, and Pre-Battle " +
+            "entered the 32x32 battle with the exact assigned-only immutable snapshot.");
     }
 
-    private static void ValidateManagementProductionFlow(SquadSaveParticipant repository)
+    private static bool ValidateManagementProductionFlow(SquadSaveParticipant repository)
     {
         SquadManagementController controller =
             UnityEngine.Object.FindAnyObjectByType<SquadManagementController>();
@@ -353,6 +375,43 @@ public static class PreBattleSceneSmokeRunner
             FindObjectsInactive.Include, FindObjectsSortMode.None).Length == 1,
             "first_try does not contain exactly one EventSystem.");
 
+        int managementPhase = SessionState.GetInt(ManagementPhaseKey, 0);
+        if (managementPhase == 1)
+        {
+            if (save.IsBusy)
+                return false;
+            Require(save.LastOperationResult.Success,
+                $"Production squad reload failed: {save.LastOperationResult.Error}");
+            SquadData restored = repository.GetSquad(SelectedSquadId);
+            string removed = SessionState.GetString(RemovedWarriorKey, string.Empty);
+            string added = SessionState.GetString(AddedWarriorKey, string.Empty);
+            Require(restored != null && restored.GetWarrior(added) != null &&
+                    restored.GetWarrior(removed) == null &&
+                    repository.GetReserveWarrior(removed) != null &&
+                    repository.GetReserveWarrior(added) == null,
+                "Save/load did not restore the exact Squad and Reserve assignments.");
+            Require(repository.ValidateRosterInvariants(out string invariantError),
+                $"Reloaded roster invariant failed: {invariantError}");
+            Require(BuildWarriorSignature(restored.Warriors) ==
+                        SessionState.GetString(AssignmentSignatureKey, string.Empty) &&
+                    BuildWarriorSignature(repository.ReserveWarriors) ==
+                        SessionState.GetString(ReserveSignatureKey, string.Empty),
+                "Reloaded roster signature differs from the saved assignment.");
+
+            controller.OpenButton.onClick.Invoke();
+            Require(controller.IsOpen && management.IsVisible,
+                "Management did not reopen after production load.");
+            Require(controller.TrySelectSquad(restored.Id, out string selectionError),
+                $"Reloaded squad could not be selected: {selectionError}");
+            Require(
+                    management.AssignedWarriorCardCount == restored.Warriors.Count &&
+                    management.ReserveWarriorCardCount == repository.ReserveWarriors.Count,
+                "Management did not rebind the saved Squad/Reserve roster after load.");
+            management.CloseButton.onClick.Invoke();
+            SessionState.SetInt(ManagementPhaseKey, 2);
+            return true;
+        }
+
         controller.OpenButton.onClick.Invoke();
         Require(controller.IsOpen && management.IsVisible && management.SquadCardCount == 2,
             "SQUADS production button did not render both persistent squads.");
@@ -366,6 +425,67 @@ public static class PreBattleSceneSmokeRunner
         selectedCard.SelectButton.onClick.Invoke();
         Require(controller.SelectedSquadId == SelectedSquadId,
             "Management squad selection did not use the persistent stable ID.");
+
+        SquadData selectedBefore = repository.GetSquad(SelectedSquadId);
+        Require(management.AssignedWarriorCardCount == selectedBefore.Warriors.Count &&
+                management.ReserveWarriorCardCount == repository.ReserveWarriors.Count &&
+                management.ReserveWarriorCardCount >= 2,
+            "Management did not render the current Squad and development Reserve.");
+        WarriorRosterCardView assignedCard = UnityEngine.Object
+            .FindObjectsByType<WarriorRosterCardView>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(card => card.gameObject.activeInHierarchy &&
+                card.name.StartsWith("AssignedWarrior_", StringComparison.Ordinal) &&
+                card.GetComponentInParent<SquadManagementView>() != null);
+        WarriorRosterCardView incomingCard = UnityEngine.Object
+            .FindObjectsByType<WarriorRosterCardView>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(card => card.gameObject.activeInHierarchy &&
+                card.name.StartsWith("ReserveWarrior_", StringComparison.Ordinal) &&
+                card.GetComponentInParent<SquadManagementView>() != null);
+        Require(assignedCard?.SelectButton != null && incomingCard?.SelectButton != null,
+            "Assigned or Reserve production Warrior card is missing.");
+        string removedWarriorId = assignedCard.WarriorId;
+        string addedWarriorId = incomingCard.WarriorId;
+        int originalCount = selectedBefore.Warriors.Count;
+        assignedCard.SelectButton.onClick.Invoke();
+        Require(management.RemoveWarriorButton.interactable,
+            "Selecting an assigned Warrior did not enable Remove.");
+        management.RemoveWarriorButton.onClick.Invoke();
+        Require(selectedBefore.Warriors.Count == originalCount - 1 &&
+                repository.GetReserveWarrior(removedWarriorId) != null,
+            $"Production Remove did not move the same Warrior into Reserve. " +
+            $"operation='{management.OperationMessage}', locked={repository.IsCompositionLocked}, " +
+            $"before={originalCount}, after={selectedBefore.Warriors.Count}, " +
+            $"reserveHasRemoved={repository.GetReserveWarrior(removedWarriorId) != null}, " +
+            $"selected={controller.SelectedAssignedWarriorId}");
+
+        incomingCard = UnityEngine.Object.FindObjectsByType<WarriorRosterCardView>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .FirstOrDefault(card => card.gameObject.activeInHierarchy &&
+                card.WarriorId == addedWarriorId &&
+                card.name.StartsWith("ReserveWarrior_", StringComparison.Ordinal));
+        Require(incomingCard?.SelectButton != null,
+            "Reserve card was not rebound after Remove.");
+        incomingCard.SelectButton.onClick.Invoke();
+        Require(management.AddWarriorButton.interactable,
+            "Selecting a Reserve Warrior did not enable Add.");
+        management.AddWarriorButton.onClick.Invoke();
+        Require(selectedBefore.Warriors.Count == originalCount &&
+                selectedBefore.GetWarrior(addedWarriorId) != null &&
+                selectedBefore.GetWarrior(removedWarriorId) == null &&
+                repository.GetReserveWarrior(removedWarriorId) != null &&
+                repository.GetReserveWarrior(addedWarriorId) == null,
+            "Production Add did not complete the expected roster replacement.");
+        Require(repository.ValidateRosterInvariants(out string rosterError),
+            $"Management mutation violated roster invariants: {rosterError}");
+
+        SessionState.SetString(RemovedWarriorKey, removedWarriorId);
+        SessionState.SetString(AddedWarriorKey, addedWarriorId);
+        SessionState.SetString(AssignmentSignatureKey,
+            BuildWarriorSignature(selectedBefore.Warriors));
+        SessionState.SetString(ReserveSignatureKey,
+            BuildWarriorSignature(repository.ReserveWarriors));
 
         EquipThroughManagement(controller, management, "SquadWeaponSlot", SelectedWeaponId);
         EquipThroughManagement(controller, management, "ArmorSlot", SelectedArmorId);
@@ -381,15 +501,16 @@ public static class PreBattleSceneSmokeRunner
         Require(!controller.IsOpen && !management.IsVisible,
             "Management Close did not restore overworld input state.");
 
-        controller.OpenButton.onClick.Invoke();
-        Require(controller.IsOpen, "Management did not reopen through SQUADS.");
-        SquadData selected = repository.GetSquad(SelectedSquadId);
-        Require(ResolveDefinitionId(selected, EquipmentSlotKind.SquadWeapon) == SelectedWeaponId &&
-                ResolveDefinitionId(selected, EquipmentSlotKind.Armor) == SelectedArmorId &&
-                ResolveDefinitionId(selected, EquipmentSlotKind.Accessory) == SelectedAccessoryId,
-            "Close/reopen did not preserve persistent management equipment state.");
-        management.CloseButton.onClick.Invoke();
+        save.LoadGame();
+        SessionState.SetInt(ManagementPhaseKey, 1);
+        return false;
     }
+
+    private static string BuildWarriorSignature(IEnumerable<WarriorData> warriors) =>
+        string.Join("|", (warriors ?? Array.Empty<WarriorData>())
+            .Where(warrior => warrior != null)
+            .Select(warrior => warrior.id)
+            .OrderBy(id => id, StringComparer.Ordinal));
 
     private static void EquipThroughManagement(SquadManagementController controller,
         SquadManagementView management, string slotObjectName, string definitionId)
@@ -528,6 +649,32 @@ public static class PreBattleSceneSmokeRunner
             EditorApplication.isPlaying = false;
     }
 
+    private static void HandoffToLifecycle(string message)
+    {
+        WriteResult(true, message +
+            " The running production battle was handed to the lifecycle smoke.");
+        Debug.Log($"Pre-Battle scene smoke: PASSED - {message}");
+        SquadBattleSceneSmokeRunner.AdoptRunningBattleFromManagementSmoke();
+
+        EditorApplication.update -= UpdateRun;
+        AssetDatabase.DeleteAsset(RequestPath);
+        Application.logMessageReceived -= CaptureRuntimeError;
+        SessionState.EraseBool(StartedKey);
+        SessionState.EraseBool(FinishedKey);
+        SessionState.EraseBool(PassedKey);
+        SessionState.EraseBool(ManagementVerifiedKey);
+        SessionState.EraseInt(PhaseKey);
+        SessionState.EraseInt(AttemptsKey);
+        SessionState.EraseString(StartTimeKey);
+        SessionState.EraseString(RosterSnapshotKey);
+        SessionState.EraseString(RuntimeErrorKey);
+        SessionState.EraseInt(ManagementPhaseKey);
+        SessionState.EraseString(RemovedWarriorKey);
+        SessionState.EraseString(AddedWarriorKey);
+        SessionState.EraseString(AssignmentSignatureKey);
+        SessionState.EraseString(ReserveSignatureKey);
+    }
+
     private static void Cleanup()
     {
         bool passed = SessionState.GetBool(PassedKey, false);
@@ -542,6 +689,12 @@ public static class PreBattleSceneSmokeRunner
         SessionState.EraseString(StartTimeKey);
         SessionState.EraseString(RosterSnapshotKey);
         SessionState.EraseString(RuntimeErrorKey);
+        SessionState.EraseBool(ManagementVerifiedKey);
+        SessionState.EraseInt(ManagementPhaseKey);
+        SessionState.EraseString(RemovedWarriorKey);
+        SessionState.EraseString(AddedWarriorKey);
+        SessionState.EraseString(AssignmentSignatureKey);
+        SessionState.EraseString(ReserveSignatureKey);
         if (Application.isBatchMode)
             EditorApplication.Exit(passed ? 0 : 1);
     }

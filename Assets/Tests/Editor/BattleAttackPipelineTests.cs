@@ -339,6 +339,72 @@ public sealed class BattleAttackPipelineTests
             Is.EqualTo(0.8f).Within(0.0001f));
     }
 
+    [Test]
+    public void RangedPipelineUsesPreviewLosCoverApAndExistingDamageResolver()
+    {
+        SequenceRandomSource random = new SequenceRandomSource(0f, 0.99f);
+        AttackSetup setup = CreateSetup(
+            adjacent: false,
+            random: random,
+            enemyWarriorHp: 30,
+            enemyArmor: 0.10f,
+            includeRanged: true);
+        AttackDefinition ranged = setup.RangedDefinition;
+        int apBefore = setup.Player.Runtime.State.currentActionPoints;
+        int hpBefore = setup.Enemy.Runtime.State.CurrentSquadHP;
+        IReadOnlyList<Vector2Int> line = GridLineOfSightService.BuildSupercoverLine(
+            setup.Player.GridAnchor.CurrentCell,
+            setup.Enemy.GridAnchor.CurrentCell);
+        Vector2Int blockingCell = line.Skip(1).First(cell =>
+            cell != setup.Enemy.GridAnchor.CurrentCell);
+
+        Assert.That(setup.Terrain.SetRuntimeCellsForTests(new[]
+        {
+            new GridTacticalTerrainCellDefinition(
+                blockingCell, true, true, CoverType.Full)
+        }), Is.True);
+        BattleAttackPreview blocked = setup.AttackService.PreviewAttack(
+            setup.Player, setup.Enemy, ranged);
+        Assert.That(blocked.Validation.FailureReason,
+            Is.EqualTo(BattleAttackFailureReason.LineOfSightBlocked));
+        Assert.That(setup.AttackService.TryExecuteAttack(
+            setup.Player, setup.Enemy, out _, ranged), Is.False);
+        Assert.That(setup.Player.Runtime.State.currentActionPoints, Is.EqualTo(apBefore));
+        Assert.That(setup.Enemy.Runtime.State.CurrentSquadHP, Is.EqualTo(hpBefore));
+
+        GridCoverResult coverCells = new GridCoverService(setup.Terrain).Evaluate(
+            setup.Player.GridAnchor.CurrentCell,
+            setup.Enemy.GridAnchor.CurrentCell);
+        Assert.That(coverCells.EvaluatedCells, Is.Not.Empty);
+        Assert.That(setup.Terrain.SetRuntimeCellsForTests(new[]
+        {
+            new GridTacticalTerrainCellDefinition(
+                coverCells.EvaluatedCells[0], true, false, CoverType.Half)
+        }), Is.True);
+        BattleAttackPreview preview = setup.AttackService.PreviewAttack(
+            setup.Player, setup.Enemy, ranged);
+        Assert.That(preview.IsValid, Is.True);
+        Assert.That(preview.LineOfSightStatus, Is.EqualTo(LineOfSightStatus.Clear));
+        Assert.That(preview.CoverType, Is.EqualTo(CoverType.Half));
+        Assert.That(preview.GridDistance,
+            Is.InRange(ranged.MinimumRange, ranged.MaximumRange));
+        Assert.That(preview.CoverHitModifier, Is.EqualTo(-0.20f).Within(0.0001f));
+        Assert.That(random.CallCount, Is.Zero, "Preview cannot consume combat RNG.");
+
+        Assert.That(setup.AttackService.TryExecuteAttack(
+            setup.Player, setup.Enemy, out BattleAttackResult result, ranged), Is.True);
+        Assert.That(result.WasExecuted, Is.True);
+        Assert.That(result.Hit, Is.True);
+        Assert.That(result.CoverType, Is.EqualTo(CoverType.Half));
+        Assert.That(result.LineOfSightStatus, Is.EqualTo(LineOfSightStatus.Clear));
+        Assert.That(result.ActionPointsSpent, Is.EqualTo(3));
+        Assert.That(setup.Player.Runtime.State.currentActionPoints,
+            Is.EqualTo(apBefore - ranged.ActionPointCost));
+        Assert.That(result.AppliedDamage, Is.EqualTo(preview.PredictedDamage));
+        Assert.That(setup.Enemy.Runtime.State.CurrentSquadHP,
+            Is.EqualTo(hpBefore - result.AppliedDamage));
+    }
+
     private AttackSetup CreateSetup(
         bool adjacent,
         SequenceRandomSource random = null,
@@ -347,7 +413,8 @@ public sealed class BattleAttackPipelineTests
         float playerCriticalDamage = 1.5f,
         int enemyWarriorCount = 2,
         int enemyWarriorHp = 8,
-        float enemyArmor = 0.15f)
+        float enemyArmor = 0.15f,
+        bool includeRanged = false)
     {
         GameObject root = Track(new GameObject("AttackTestRoot"));
         GameObject mapObject = NewChild(root.transform, "Map").gameObject;
@@ -423,12 +490,18 @@ public sealed class BattleAttackPipelineTests
         turns.Configure(bootstrap, false, 0f);
         Assert.That(turns.StartBattle(), Is.True);
         Assert.That(turns.ActiveSquad, Is.SameAs(player));
+        GridTacticalTerrainService terrain = includeRanged
+            ? NewChild(root.transform, "TacticalTerrain").gameObject
+                .AddComponent<GridTacticalTerrainService>()
+            : null;
+        terrain?.Configure(generator, Array.Empty<GridTacticalTerrainCellDefinition>());
         SquadMovementService movement =
             NewChild(root.transform, "Movement").gameObject.AddComponent<SquadMovementService>();
-        movement.Configure(generator, renderer, occupancy, turns, true, 0.02f);
+        movement.Configure(generator, renderer, occupancy, turns, terrain, true, 0.02f);
         Assert.That(movement.Initialize(), Is.True);
 
         AttackDefinition definition = CreateAttack();
+        AttackDefinition rangedDefinition = includeRanged ? CreateRangedAttack() : null;
         BattleCombatRules rules = CreateRules();
         BattleAttackService attackService =
             NewChild(root.transform, "AttackService").gameObject.AddComponent<BattleAttackService>();
@@ -438,7 +511,9 @@ public sealed class BattleAttackPipelineTests
             selection,
             movement,
             definition,
+            rangedDefinition,
             rules,
+            terrain,
             true,
             42,
             random ?? new SequenceRandomSource(0f, 0.99f),
@@ -458,7 +533,9 @@ public sealed class BattleAttackPipelineTests
             Turns = turns,
             Movement = movement,
             Definition = definition,
+            RangedDefinition = rangedDefinition,
             Rules = rules,
+            Terrain = terrain,
             AttackService = attackService
         };
     }
@@ -497,6 +574,22 @@ public sealed class BattleAttackPipelineTests
             baseDamage,
             2,
             scaling,
+            null,
+            null);
+        return attack;
+    }
+
+    private AttackDefinition CreateRangedAttack()
+    {
+        AttackDefinition attack = Track(ScriptableObject.CreateInstance<AttackDefinition>());
+        attack.ConfigureDevelopmentRanged(
+            "test-basic-ranged",
+            "Test Basic Ranged",
+            2,
+            3,
+            2,
+            8,
+            0.5f,
             null,
             null);
         return attack;
@@ -663,7 +756,9 @@ public sealed class BattleAttackPipelineTests
         public BattleTurnController Turns;
         public SquadMovementService Movement;
         public AttackDefinition Definition;
+        public AttackDefinition RangedDefinition;
         public BattleCombatRules Rules;
+        public GridTacticalTerrainService Terrain;
         public BattleAttackService AttackService;
     }
 }

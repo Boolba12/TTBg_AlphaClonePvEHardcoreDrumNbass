@@ -79,9 +79,16 @@ public sealed class AbilityDetailsPanelView : MonoBehaviour
         }
         if (descriptionLabel != null)
         {
+            string tactical = definition != null &&
+                              definition.Delivery == BattleAttackDelivery.Ranged
+                ? $"Range  {preview.GridDistance} / {preview.MinimumRange}-{preview.MaximumRange}\n" +
+                  $"LOS  {FormatLineOfSight(preview.LineOfSightStatus)}\n" +
+                  $"Cover  {preview.CoverType}\n"
+                : string.Empty;
             descriptionLabel.text = preview.IsValid
                 ? $"HP  {preview.TargetCurrentHealth} / {preview.TargetMaximumHealth}\n" +
                   $"Warriors  {preview.TargetLivingWarriors}\n" +
+                  tactical +
                   $"Hit  {UIStatFormatter.FormatPercentage(preview.HitChance)}\n" +
                   $"Critical  {UIStatFormatter.FormatPercentage(preview.CriticalChance)}\n" +
                   $"Damage  {preview.PredictedDamage}  (critical {preview.PredictedCriticalDamage})\n" +
@@ -91,6 +98,14 @@ public sealed class AbilityDetailsPanelView : MonoBehaviour
         if (emptyStateLabel != null)
             emptyStateLabel.gameObject.SetActive(false);
     }
+
+    private static string FormatLineOfSight(LineOfSightStatus status) => status switch
+    {
+        LineOfSightStatus.Clear => "Clear",
+        LineOfSightStatus.Blocked => "Blocked",
+        LineOfSightStatus.NotRequired => "Not required",
+        _ => "Unavailable"
+    };
 
     public void ShowAttackResult(BattleAttackResult result)
     {

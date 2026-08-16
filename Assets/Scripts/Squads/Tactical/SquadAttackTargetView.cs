@@ -27,6 +27,7 @@ public sealed class SquadAttackTargetView : MonoBehaviour
 
     public SquadAttackTargetVisualState State { get; private set; }
     public string LastFeedback { get; private set; }
+    public string LastCoverIndicator { get; private set; }
     public LineRenderer TargetRing => targetRing;
     public TMP_Text FeedbackLabel => feedbackLabel;
 
@@ -139,6 +140,23 @@ public sealed class SquadAttackTargetView : MonoBehaviour
         StartFeedback(text, color, 0.7f);
     }
 
+    public void ShowCoverIndicator(CoverType cover)
+    {
+        LastCoverIndicator = cover == CoverType.None ? string.Empty : $"{cover.ToString().ToUpperInvariant()} COVER";
+        if (feedbackRoutine != null || feedbackLabel == null)
+            return;
+        feedbackLabel.text = LastCoverIndicator;
+        feedbackLabel.color = theme != null ? theme.Bronze : new Color32(169, 119, 62, 255);
+        feedbackLabel.gameObject.SetActive(!string.IsNullOrWhiteSpace(LastCoverIndicator));
+    }
+
+    public void ClearCoverIndicator()
+    {
+        LastCoverIndicator = string.Empty;
+        if (feedbackRoutine == null && feedbackLabel != null)
+            feedbackLabel.gameObject.SetActive(false);
+    }
+
     private void StartFeedback(string text, Color color, float duration)
     {
         LastFeedback = text;
@@ -170,6 +188,7 @@ public sealed class SquadAttackTargetView : MonoBehaviour
         if (feedbackLabel != null)
             feedbackLabel.gameObject.SetActive(false);
         feedbackRoutine = null;
+        LastCoverIndicator = string.Empty;
         SetState(previous == SquadAttackTargetVisualState.Resolving
             ? SquadAttackTargetVisualState.None
             : previous);
@@ -206,6 +225,7 @@ public sealed class SquadAttackTargetView : MonoBehaviour
         if (feedbackRoutine != null)
             StopCoroutine(feedbackRoutine);
         feedbackRoutine = null;
+        LastCoverIndicator = string.Empty;
         SetState(SquadAttackTargetVisualState.None);
         if (feedbackLabel != null)
             feedbackLabel.gameObject.SetActive(false);

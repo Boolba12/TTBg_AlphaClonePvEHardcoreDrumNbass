@@ -81,6 +81,40 @@ public sealed class EnemyTacticalAITests
             setup.Movement.AllowDiagonalMovement), Is.EqualTo(1));
     }
 
+    [Test]
+    public void DistantAIUsesExistingRangedDefinitionBeforeMeleeMovementAndRespectsLos()
+    {
+        AISetup setup = CreateSetup(
+            false,
+            16,
+            2,
+            false,
+            3,
+            6,
+            includeRanged: true);
+
+        EnemyTacticalDecision ranged = setup.Decisions.Decide(setup.Enemy);
+        Assert.That(ranged.ActionType, Is.EqualTo(EnemyTacticalActionType.BasicAttack));
+        Assert.That(ranged.AttackDefinition, Is.SameAs(setup.RangedAttack));
+        Assert.That(ranged.AttackDefinition.Delivery, Is.EqualTo(BattleAttackDelivery.Ranged));
+        Assert.That(ranged.MovementPlan, Is.Null);
+
+        IReadOnlyList<Vector2Int> line = GridLineOfSightService.BuildSupercoverLine(
+            setup.Enemy.GridAnchor.CurrentCell,
+            setup.Player.GridAnchor.CurrentCell);
+        Vector2Int blocker = line.Skip(1).First(cell =>
+            cell != setup.Player.GridAnchor.CurrentCell);
+        Assert.That(setup.Terrain.SetRuntimeCellsForTests(new[]
+        {
+            new GridTacticalTerrainCellDefinition(
+                blocker, true, true, CoverType.Full)
+        }), Is.True);
+
+        EnemyTacticalDecision blocked = setup.Decisions.Decide(setup.Enemy);
+        Assert.That(blocked.AttackDefinition, Is.Not.SameAs(setup.RangedAttack),
+            "AI must not execute a ranged action through a logical LOS blocker.");
+    }
+
     [UnityTest]
     public IEnumerator ControllerMovesAttacksThroughProductionServicesAndReturnsTurnToPlayer()
     {
@@ -308,7 +342,8 @@ public sealed class EnemyTacticalAITests
         bool createAI = false,
         int minimumPathCost = 3,
         int maximumPathCost = 8,
-        int actionLimit = 8)
+        int actionLimit = 8,
+        bool includeRanged = false)
     {
         GameObject root = Track(new GameObject("EnemyAITestRoot"));
         GameObject mapObject = NewChild(root.transform, "Map").gameObject;
@@ -361,9 +396,14 @@ public sealed class EnemyTacticalAITests
         turns.Configure(bootstrap, false, 0f);
         Assert.That(turns.StartBattle(), Is.True);
         Assert.That(turns.ActiveSquad, Is.SameAs(enemy));
+        GridTacticalTerrainService terrain = includeRanged
+            ? NewChild(root.transform, "TacticalTerrain").gameObject
+                .AddComponent<GridTacticalTerrainService>()
+            : null;
+        terrain?.Configure(generator, Array.Empty<GridTacticalTerrainCellDefinition>());
         SquadMovementService movement = NewChild(root.transform, "Movement").gameObject
             .AddComponent<SquadMovementService>();
-        movement.Configure(generator, renderer, occupancy, turns, true, 0.02f);
+        movement.Configure(generator, renderer, occupancy, turns, terrain, true, 0.02f);
         Assert.That(movement.Initialize(), Is.True);
         BattleCommandModeController modes = NewChild(root.transform, "Modes").gameObject
             .AddComponent<BattleCommandModeController>();
@@ -371,13 +411,19 @@ public sealed class EnemyTacticalAITests
         AttackDefinition basic = Track(ScriptableObject.CreateInstance<AttackDefinition>());
         basic.ConfigureDevelopment(
             "ai-basic", "AI Basic", 1, basicActionPointCost, 0.1f, null, null);
+        AttackDefinition ranged = includeRanged
+            ? Track(ScriptableObject.CreateInstance<AttackDefinition>())
+            : null;
+        ranged?.ConfigureDevelopmentRanged(
+            "ai-ranged", "AI Ranged", 2, 3, 2, 8, 0.5f, null, null);
         BattleCombatRules rules = Track(ScriptableObject.CreateInstance<BattleCombatRules>());
         rules.ConfigureDevelopment(1f, 1f, 1f, 0.8f, 1);
+        rules.ConfigureDevelopmentCover(-0.20f, -0.40f);
         BattleAttackService attacks = NewChild(root.transform, "Attacks").gameObject
             .AddComponent<BattleAttackService>();
         attacks.Configure(
-            bootstrap, turns, selection, movement, basic, rules, true, 42,
-            new ConstantBattleRandom());
+            bootstrap, turns, selection, movement, basic, ranged, rules, terrain,
+            true, 42, new ConstantBattleRandom());
         Assert.That(attacks.Initialize(), Is.True);
 
         GameObject moveCommandsObject = NewChild(root.transform, "MoveCommands").gameObject;
@@ -469,6 +515,8 @@ public sealed class EnemyTacticalAITests
             Turns = turns,
             Movement = movement,
             BasicAttack = basic,
+            RangedAttack = ranged,
+            Terrain = terrain,
             Attacks = attacks,
             Completion = completion,
             Power = power,
@@ -647,6 +695,8 @@ public sealed class EnemyTacticalAITests
         public BattleTurnController Turns;
         public SquadMovementService Movement;
         public AttackDefinition BasicAttack;
+        public AttackDefinition RangedAttack;
+        public GridTacticalTerrainService Terrain;
         public BattleAttackService Attacks;
         public BattleCompletionController Completion;
         public AbilityDefinition Power;

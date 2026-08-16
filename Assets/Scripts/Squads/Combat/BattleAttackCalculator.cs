@@ -12,12 +12,16 @@ public sealed class BattleAttackCalculator
     public float CalculateHitChance(
         SquadCalculatedStats attacker,
         SquadCalculatedStats target,
-        WeaponCombatSnapshot weapon = null)
+        WeaponCombatSnapshot weapon = null,
+        float rangeModifier = 0f,
+        float coverModifier = 0f,
+        float otherModifier = 0f)
     {
         if (rules == null)
             return 0f;
         return Mathf.Clamp(
-            rules.BaseHitChance + attacker.Accuracy - target.Evasion,
+            rules.BaseHitChance + attacker.Accuracy - target.Evasion +
+            rangeModifier + coverModifier + otherModifier,
             rules.MinimumHitChance,
             rules.MaximumHitChance);
     }

@@ -19,7 +19,9 @@ public sealed class AttackCommandController : MonoBehaviour
 
     [Header("HUD command")]
     [SerializeField] private BattleActionControlView attackAction;
+    [SerializeField] private BattleActionControlView rangedAttackAction;
     [SerializeField] private BattleHUDController battleHud;
+    [SerializeField] private AttackRangePreviewView rangePreview;
 
     private readonly RaycastHit[] hitBuffer = new RaycastHit[24];
     private readonly Dictionary<string, Action> defeatHandlers =
@@ -27,6 +29,7 @@ public sealed class AttackCommandController : MonoBehaviour
     private bool listenersBound;
     private SquadAttackTarget hoveredTarget;
     private bool battleCommandsEnabled = true;
+    private AttackDefinition activeAttackDefinition;
 
     public bool IsInitialized { get; private set; }
     public bool IsAttackTargeting =>
@@ -34,6 +37,7 @@ public sealed class AttackCommandController : MonoBehaviour
     public SquadAttackTarget HoveredTarget => hoveredTarget;
     public int AttackCommandCount { get; private set; }
     public BattleAttackResult LastResult { get; private set; }
+    public AttackDefinition ActiveAttackDefinition => activeAttackDefinition;
 
     public void Configure(
         SquadBattleBootstrap bootstrap,
@@ -60,6 +64,16 @@ public sealed class AttackCommandController : MonoBehaviour
             BindListeners();
     }
 
+    public void ConfigureRanged(BattleActionControlView rangedControl,
+        AttackRangePreviewView configuredRangePreview)
+    {
+        UnbindListeners();
+        rangedAttackAction = rangedControl;
+        rangePreview = configuredRangePreview;
+        if (isActiveAndEnabled)
+            BindListeners();
+    }
+
     public bool Initialize()
     {
         IsInitialized = squadBootstrap != null && squadBootstrap.HasBootstrapped &&
@@ -67,7 +81,9 @@ public sealed class AttackCommandController : MonoBehaviour
                         turnController != null && turnController.HasStarted &&
                         movementService != null && movementService.IsInitialized &&
                         commandMode != null && attackService != null &&
-                        attackService.IsInitialized && attackAction != null && battleHud != null;
+                        attackService.IsInitialized && attackAction != null && battleHud != null &&
+                        (attackService.RangedAttack == null ||
+                         (rangedAttackAction != null && rangePreview != null));
         if (!IsInitialized)
             return false;
 
@@ -79,7 +95,18 @@ public sealed class AttackCommandController : MonoBehaviour
 
     public bool TryBeginAttackTargeting()
     {
-        if (!battleCommandsEnabled || !IsInitialized || attackService.IsExecuting || movementService.IsMoving)
+        return TryBeginAttackTargeting(attackService?.BasicAttack);
+    }
+
+    public bool TryBeginRangedTargeting()
+    {
+        return TryBeginAttackTargeting(attackService?.RangedAttack);
+    }
+
+    public bool TryBeginAttackTargeting(AttackDefinition definition)
+    {
+        if (!battleCommandsEnabled || !IsInitialized || definition == null ||
+            attackService.IsExecuting || movementService.IsMoving)
             return false;
 
         SquadBattleController attacker = turnController.ActiveSquad;
@@ -87,16 +114,26 @@ public sealed class AttackCommandController : MonoBehaviour
             selectionController.TrySelect(attacker);
         BattleAttackValidationResult validation = attackService.ValidateAvailability(
             attacker,
-            null,
+            definition,
             true,
             true);
         if (!validation.IsValid)
         {
-            attackAction.SetCommandState(false, false, validation.Reason, validation.Reason);
+            ResolveControl(definition)?.SetCommandState(
+                false, false, validation.Reason, validation.Reason);
             return false;
         }
 
-        commandMode.TryEnter(BattleCommandMode.Attack);
+        activeAttackDefinition = definition;
+        if (!commandMode.TryEnter(BattleCommandMode.Attack))
+        {
+            activeAttackDefinition = null;
+            return false;
+        }
+        rangePreview?.ShowRange(
+            attacker.GridAnchor.CurrentCell,
+            activeAttackDefinition,
+            movementService.AllowDiagonalMovement);
         RefreshTargetHighlights();
         RefreshAvailability();
         return true;
@@ -112,7 +149,7 @@ public sealed class AttackCommandController : MonoBehaviour
 
     public BattleAttackPreview TryHoverTarget(SquadAttackTarget target)
     {
-        if (!IsAttackTargeting || target == null)
+        if (!IsAttackTargeting || target == null || activeAttackDefinition == null)
             return default;
 
         if (hoveredTarget != target)
@@ -123,12 +160,27 @@ public sealed class AttackCommandController : MonoBehaviour
 
         BattleAttackPreview preview = attackService.PreviewAttack(
             turnController.ActiveSquad,
-            target.Controller);
+            target.Controller,
+            activeAttackDefinition);
         target.TargetingView?.SetState(
             preview.IsValid
                 ? SquadAttackTargetVisualState.HoveredValid
                 : SquadAttackTargetVisualState.HoveredInvalid);
-        battleHud.ShowAttackPreview(preview, target.Controller, attackService.BasicAttack);
+        target.TargetingView?.ShowCoverIndicator(preview.CoverType);
+        if (activeAttackDefinition.Delivery == BattleAttackDelivery.Ranged)
+        {
+            BattleAttackTargetEvaluation geometry =
+                attackService.TargetingService.EvaluateTarget(
+                    turnController.ActiveSquad,
+                    target.Controller,
+                    activeAttackDefinition);
+            rangePreview?.ShowLine(geometry.LineOfSight);
+        }
+        else
+        {
+            rangePreview?.ClearLine();
+        }
+        battleHud.ShowAttackPreview(preview, target.Controller, activeAttackDefinition);
         return preview;
     }
 
@@ -138,9 +190,11 @@ public sealed class AttackCommandController : MonoBehaviour
             return false;
 
         SquadBattleController attacker = turnController.ActiveSquad;
+        AttackDefinition definition = activeAttackDefinition;
         BattleAttackValidationResult validation = attackService.ValidateCommand(
             attacker,
-            target.Controller);
+            target.Controller,
+            definition);
         if (!validation.IsValid)
         {
             TryHoverTarget(target);
@@ -151,7 +205,8 @@ public sealed class AttackCommandController : MonoBehaviour
         bool accepted = attackService.TryExecuteAttack(
             attacker,
             target.Controller,
-            out BattleAttackResult result);
+            out BattleAttackResult result,
+            definition);
         LastResult = result;
         if (result.WasExecuted)
         {
@@ -166,9 +221,15 @@ public sealed class AttackCommandController : MonoBehaviour
 
     public void RefreshAvailability()
     {
-        if (attackAction == null)
+        RenderAvailability(attackAction, attackService?.BasicAttack, "Attack");
+        RenderAvailability(rangedAttackAction, attackService?.RangedAttack, "Ranged");
+    }
+
+    private void RenderAvailability(BattleActionControlView control,
+        AttackDefinition definition, string fallbackLabel)
+    {
+        if (control == null || definition == null)
             return;
-        AttackDefinition definition = attackService?.BasicAttack;
         string hotkey = definition != null ? definition.Hotkey.ToString() : "A";
         string cost = definition != null ? $"{definition.ActionPointCost} AP" : "AP —";
         BattleAttackValidationResult validation = battleCommandsEnabled && IsInitialized
@@ -180,14 +241,18 @@ public sealed class AttackCommandController : MonoBehaviour
             : BattleAttackValidationResult.Reject(
                 BattleAttackFailureReason.ServiceNotInitialized,
                 "Attack command is not initialized.");
-        bool selected = IsAttackTargeting;
+        bool selected = IsAttackTargeting && activeAttackDefinition == definition;
         bool interactable = validation.IsValid || selected;
         string state = selected
             ? "Choose an enemy squad"
             : validation.IsValid ? "Select a target" : validation.Reason;
-        Sprite weaponPreview = turnController.ActiveSquad?.Runtime?.Equipment?.SquadWeapon?.PreviewSprite;
-        attackAction.RenderCommand(
-            "Attack",
+        Sprite weaponPreview = definition.Delivery == BattleAttackDelivery.Melee
+            ? turnController.ActiveSquad?.Runtime?.Equipment?.SquadWeapon?.PreviewSprite
+            : null;
+        control.RenderCommand(
+            string.IsNullOrWhiteSpace(definition.DisplayName)
+                ? fallbackLabel
+                : definition.DisplayName,
             hotkey,
             cost,
             interactable,
@@ -216,6 +281,15 @@ public sealed class AttackCommandController : MonoBehaviour
                 CancelAttackTargeting();
             else
                 TryBeginAttackTargeting();
+        }
+        AttackDefinition ranged = attackService.RangedAttack;
+        if (ranged != null && ranged.Hotkey != Key.None &&
+            Keyboard.current[ranged.Hotkey].wasPressedThisFrame)
+        {
+            if (IsAttackTargeting && activeAttackDefinition == ranged)
+                CancelAttackTargeting();
+            else
+                TryBeginAttackTargeting(ranged);
         }
         if (Keyboard.current.escapeKey.wasPressedThisFrame ||
             (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame))
@@ -268,7 +342,7 @@ public sealed class AttackCommandController : MonoBehaviour
 
     private void RefreshTargetHighlights()
     {
-        if (squadBootstrap == null)
+        if (squadBootstrap == null || activeAttackDefinition == null)
             return;
         SquadBattleController attacker = turnController.ActiveSquad;
         foreach (SquadBattleController controller in squadBootstrap.SpawnedControllers)
@@ -284,7 +358,7 @@ public sealed class AttackCommandController : MonoBehaviour
             bool valid = attackService.TargetingService.ValidateTarget(
                 attacker,
                 controller,
-                attackService.BasicAttack).IsValid;
+                activeAttackDefinition).IsValid;
             target.TargetingView.SetState(valid
                 ? SquadAttackTargetVisualState.Available
                 : SquadAttackTargetVisualState.Unavailable);
@@ -298,7 +372,7 @@ public sealed class AttackCommandController : MonoBehaviour
         BattleAttackValidationResult validation = attackService.TargetingService.ValidateTarget(
             turnController.ActiveSquad,
             target.Controller,
-            attackService.BasicAttack);
+            activeAttackDefinition);
         target.TargetingView.SetState(validation.IsValid
             ? SquadAttackTargetVisualState.Available
             : SquadAttackTargetVisualState.Unavailable);
@@ -307,12 +381,15 @@ public sealed class AttackCommandController : MonoBehaviour
     private void ClearHoveredTarget()
     {
         RestoreTargetState(hoveredTarget);
+        hoveredTarget?.TargetingView?.ClearCoverIndicator();
         hoveredTarget = null;
+        rangePreview?.ClearLine();
         battleHud?.ClearAttackPreview();
     }
 
     private void ClearTargetingPresentation()
     {
+        hoveredTarget?.TargetingView?.ClearCoverIndicator();
         hoveredTarget = null;
         if (squadBootstrap != null)
         {
@@ -320,8 +397,11 @@ public sealed class AttackCommandController : MonoBehaviour
             {
                 controller?.AttackTarget?.TargetingView?.SetState(
                     SquadAttackTargetVisualState.None);
+                controller?.AttackTarget?.TargetingView?.ClearCoverIndicator();
             }
         }
+        rangePreview?.Clear();
+        activeAttackDefinition = null;
         battleHud?.ClearAttackPreview();
         RefreshAvailability();
     }
@@ -350,6 +430,8 @@ public sealed class AttackCommandController : MonoBehaviour
             return;
         if (attackAction?.Button != null)
             attackAction.Button.onClick.AddListener(HandleAttackClicked);
+        if (rangedAttackAction?.Button != null)
+            rangedAttackAction.Button.onClick.AddListener(HandleRangedAttackClicked);
         if (selectionController != null)
             selectionController.OnSelectedSquadChanged += HandleSelectionChanged;
         if (turnController != null)
@@ -371,6 +453,8 @@ public sealed class AttackCommandController : MonoBehaviour
     {
         if (attackAction?.Button != null)
             attackAction.Button.onClick.RemoveListener(HandleAttackClicked);
+        if (rangedAttackAction?.Button != null)
+            rangedAttackAction.Button.onClick.RemoveListener(HandleRangedAttackClicked);
         if (selectionController != null)
             selectionController.OnSelectedSquadChanged -= HandleSelectionChanged;
         if (turnController != null)
@@ -404,10 +488,18 @@ public sealed class AttackCommandController : MonoBehaviour
 
     private void HandleAttackClicked()
     {
-        if (IsAttackTargeting)
+        if (IsAttackTargeting && activeAttackDefinition == attackService.BasicAttack)
             CancelAttackTargeting();
         else
             TryBeginAttackTargeting();
+    }
+
+    private void HandleRangedAttackClicked()
+    {
+        if (IsAttackTargeting && activeAttackDefinition == attackService.RangedAttack)
+            CancelAttackTargeting();
+        else
+            TryBeginRangedTargeting();
     }
 
     private void HandleTargetConfirmRequested(SquadAttackTarget target) =>
@@ -456,5 +548,12 @@ public sealed class AttackCommandController : MonoBehaviour
     {
         CancelAttackTargeting();
         UnbindListeners();
+    }
+
+    private BattleActionControlView ResolveControl(AttackDefinition definition)
+    {
+        return definition != null && definition == attackService?.RangedAttack
+            ? rangedAttackAction
+            : attackAction;
     }
 }

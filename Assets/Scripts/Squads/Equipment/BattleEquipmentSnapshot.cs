@@ -60,6 +60,8 @@ public sealed class BattleEquipmentSnapshot
 
     public WeaponCombatSnapshot GetWeaponForAttack(AttackDefinition definition)
     {
+        if (definition == null || !definition.UsesEquippedWeapon)
+            return null;
         return definition?.WeaponSlot == EquipmentSlotKind.CommanderWeapon
             ? CommanderWeapon
             : SquadWeapon;

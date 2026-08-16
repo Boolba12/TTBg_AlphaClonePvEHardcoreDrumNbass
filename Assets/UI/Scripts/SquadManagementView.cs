@@ -24,6 +24,17 @@ public sealed class SquadManagementView : MonoBehaviour
     [SerializeField] private TMP_Text compositionSummary;
     [SerializeField] private TMP_Text debuffSummary;
 
+    [Header("Squad and Reserve")]
+    [SerializeField] private RectTransform assignedWarriorContent;
+    [SerializeField] private WarriorRosterCardView assignedWarriorTemplate;
+    [SerializeField] private RectTransform reserveWarriorContent;
+    [SerializeField] private WarriorRosterCardView reserveWarriorTemplate;
+    [SerializeField] private TMP_Text reserveCountLabel;
+    [SerializeField] private TMP_Text compositionStatPreview;
+    [SerializeField] private Button addWarriorButton;
+    [SerializeField] private Button removeWarriorButton;
+    [SerializeField] private Button rotateWarriorButton;
+
     [Header("Equipment")]
     [SerializeField] private EquipmentSlotView squadWeaponSlot;
     [SerializeField] private EquipmentSlotView commanderWeaponSlot;
@@ -49,6 +60,8 @@ public sealed class SquadManagementView : MonoBehaviour
 
     private readonly List<PreBattleSquadCardView> squadCards = new();
     private readonly List<ItemPreviewCardView> inventoryCards = new();
+    private readonly List<WarriorRosterCardView> assignedWarriorCards = new();
+    private readonly List<WarriorRosterCardView> reserveWarriorCards = new();
     private bool listenersBound;
 
     public event Action<string> SquadSelected;
@@ -59,6 +72,11 @@ public sealed class SquadManagementView : MonoBehaviour
     public event Action UnequipRequested;
     public event Action SaveRequested;
     public event Action CloseRequested;
+    public event Action<string> AssignedWarriorSelected;
+    public event Action<string> ReserveWarriorSelected;
+    public event Action AddWarriorRequested;
+    public event Action RemoveWarriorRequested;
+    public event Action RotateWarriorRequested;
 
     public bool IsVisible => panelRoot != null && panelRoot.activeInHierarchy;
     public int SquadCardCount => squadCards.Count;
@@ -66,6 +84,11 @@ public sealed class SquadManagementView : MonoBehaviour
     public Button CloseButton => closeButton;
     public Button EquipButton => equipButton;
     public Button SaveButton => saveButton;
+    public Button AddWarriorButton => addWarriorButton;
+    public Button RemoveWarriorButton => removeWarriorButton;
+    public Button RotateWarriorButton => rotateWarriorButton;
+    public int AssignedWarriorCardCount => assignedWarriorCards.Count;
+    public int ReserveWarriorCardCount => reserveWarriorCards.Count;
     public string OperationMessage => operationStatus != null ? operationStatus.text : string.Empty;
 
     public void Show(IReadOnlyList<PreBattleSquadOption> options,
@@ -140,6 +163,82 @@ public sealed class SquadManagementView : MonoBehaviour
         BindSlot(armorSlot, EquipmentSlotKind.Armor, "Armor", armor, selectedSlot);
         BindSlot(accessorySlot, EquipmentSlotKind.Accessory, "Accessory", accessory,
             selectedSlot);
+    }
+
+    public void RenderRoster(
+        IReadOnlyList<SquadManagementWarriorEntry> assigned,
+        IReadOnlyList<SquadManagementWarriorEntry> reserve,
+        string selectedAssignedId,
+        string selectedReserveId)
+    {
+        ClearWarriorCards();
+        if (assignedWarriorTemplate != null)
+            assignedWarriorTemplate.gameObject.SetActive(false);
+        if (reserveWarriorTemplate != null)
+            reserveWarriorTemplate.gameObject.SetActive(false);
+
+        for (int i = 0; assignedWarriorTemplate != null &&
+                        assignedWarriorContent != null && assigned != null &&
+                        i < assigned.Count; i++)
+        {
+            WarriorRosterCardView card = Instantiate(
+                assignedWarriorTemplate, assignedWarriorContent);
+            card.name = $"AssignedWarrior_{assigned[i].WarriorId}";
+            card.gameObject.SetActive(true);
+            card.Bind(assigned[i], assigned[i].WarriorId == selectedAssignedId,
+                HandleAssignedWarriorSelected);
+            assignedWarriorCards.Add(card);
+        }
+        for (int i = 0; reserveWarriorTemplate != null &&
+                        reserveWarriorContent != null && reserve != null &&
+                        i < reserve.Count; i++)
+        {
+            WarriorRosterCardView card = Instantiate(
+                reserveWarriorTemplate, reserveWarriorContent);
+            card.name = $"ReserveWarrior_{reserve[i].WarriorId}";
+            card.gameObject.SetActive(true);
+            card.Bind(reserve[i], reserve[i].WarriorId == selectedReserveId,
+                HandleReserveWarriorSelected);
+            reserveWarriorCards.Add(card);
+        }
+        if (reserveCountLabel != null)
+            reserveCountLabel.text = $"RESERVE  {reserveWarriorCards.Count}";
+    }
+
+    public void SetRosterActions(
+        bool canAdd,
+        bool canRemove,
+        bool canRotate,
+        string unavailableReason = null)
+    {
+        if (addWarriorButton != null) addWarriorButton.interactable = canAdd;
+        if (removeWarriorButton != null) removeWarriorButton.interactable = canRemove;
+        if (rotateWarriorButton != null) rotateWarriorButton.interactable = canRotate;
+        if (!canAdd && !canRemove && !canRotate &&
+            !string.IsNullOrWhiteSpace(unavailableReason))
+            SetOperationStatus(unavailableReason, false);
+    }
+
+    public void RenderCompositionPreview(SquadCompositionStatPreview? preview)
+    {
+        if (compositionStatPreview == null)
+            return;
+        if (!preview.HasValue)
+        {
+            compositionStatPreview.text =
+                "Select an Assigned or Reserve Warrior to preview calculated changes.";
+            return;
+        }
+        SquadCompositionStatPreview value = preview.Value;
+        SquadCalculatedStats before = value.Current;
+        SquadCalculatedStats after = value.Candidate;
+        compositionStatPreview.text =
+            $"{(value.Adding ? "ADD" : "REMOVE")} {value.WarriorId}\n" +
+            $"HP {before.MaxHP} -> {after.MaxHP} ({FormatSigned(after.MaxHP - before.MaxHP)})\n" +
+            $"STR {before.Strength:0.#} -> {after.Strength:0.#} " +
+            $"({FormatSigned(after.Strength - before.Strength)})\n" +
+            $"DEX {before.Dexterity:0.#} -> {after.Dexterity:0.#} " +
+            $"({FormatSigned(after.Dexterity - before.Dexterity)})";
     }
 
     public void RenderInventory(IReadOnlyList<SquadManagementInventoryEntry> entries,
@@ -223,20 +322,10 @@ public sealed class SquadManagementView : MonoBehaviour
     private static string BuildComposition(SquadManagementDetails details)
     {
         if (details == null) return "COMPOSITION\nNo squad selected.";
-        string value = $"COMPOSITION (read-only)\nCommander: {details.CommanderId}";
-        for (int i = 0; i < SquadData.MaximumWarriors; i++)
-        {
-            if (details.Warriors != null && i < details.Warriors.Count &&
-                details.Warriors[i] != null)
-            {
-                WarriorData warrior = details.Warriors[i];
-                value += $"\nW{i + 1}: {warrior.id} - HP {warrior.maxHP} - " +
-                         $"STR {warrior.strength:0.#} - DEX {warrior.dexterity:0.#}";
-            }
-            else
-                value += $"\nW{i + 1}: Empty";
-        }
-        return value;
+        int count = details.Warriors?.Count ?? 0;
+        return $"COMPOSITION  {count}/{SquadData.MaximumWarriors}\n" +
+               $"Commander: {details.CommanderId}\n" +
+               $"{(details.BattleReady ? "BATTLE READY" : "NOT READY — requires Commander + 1–8 Warriors")}";
     }
 
     private static string BuildDebuffs(SquadManagementDetails details)
@@ -269,6 +358,9 @@ public sealed class SquadManagementView : MonoBehaviour
                $"Magic Resist {before.MagicalResistance:P0} -> {after.MagicalResistance:P0}";
     }
 
+    private static string FormatSigned(float value) => value >= 0f
+        ? $"+{value:0.#}" : value.ToString("0.#");
+
     private static void SetFilterState(Button button, bool selected)
     {
         if (button?.targetGraphic != null)
@@ -288,6 +380,13 @@ public sealed class SquadManagementView : MonoBehaviour
     private void HandleUnequip() => UnequipRequested?.Invoke();
     private void HandleSave() => SaveRequested?.Invoke();
     private void HandleClose() => CloseRequested?.Invoke();
+    private void HandleAssignedWarriorSelected(string id) =>
+        AssignedWarriorSelected?.Invoke(id);
+    private void HandleReserveWarriorSelected(string id) =>
+        ReserveWarriorSelected?.Invoke(id);
+    private void HandleAddWarrior() => AddWarriorRequested?.Invoke();
+    private void HandleRemoveWarrior() => RemoveWarriorRequested?.Invoke();
+    private void HandleRotateWarrior() => RotateWarriorRequested?.Invoke();
 
     private void BindListeners()
     {
@@ -300,6 +399,9 @@ public sealed class SquadManagementView : MonoBehaviour
         unequipButton?.onClick.AddListener(HandleUnequip);
         saveButton?.onClick.AddListener(HandleSave);
         closeButton?.onClick.AddListener(HandleClose);
+        addWarriorButton?.onClick.AddListener(HandleAddWarrior);
+        removeWarriorButton?.onClick.AddListener(HandleRemoveWarrior);
+        rotateWarriorButton?.onClick.AddListener(HandleRotateWarrior);
         listenersBound = true;
     }
 
@@ -314,6 +416,9 @@ public sealed class SquadManagementView : MonoBehaviour
         unequipButton?.onClick.RemoveListener(HandleUnequip);
         saveButton?.onClick.RemoveListener(HandleSave);
         closeButton?.onClick.RemoveListener(HandleClose);
+        addWarriorButton?.onClick.RemoveListener(HandleAddWarrior);
+        removeWarriorButton?.onClick.RemoveListener(HandleRemoveWarrior);
+        rotateWarriorButton?.onClick.RemoveListener(HandleRotateWarrior);
         listenersBound = false;
     }
 
@@ -327,6 +432,14 @@ public sealed class SquadManagementView : MonoBehaviour
     {
         DestroyViews(inventoryCards);
         inventoryCards.Clear();
+    }
+
+    private void ClearWarriorCards()
+    {
+        DestroyViews(assignedWarriorCards);
+        assignedWarriorCards.Clear();
+        DestroyViews(reserveWarriorCards);
+        reserveWarriorCards.Clear();
     }
 
     private static void DestroyViews<T>(List<T> views) where T : Component
@@ -346,5 +459,6 @@ public sealed class SquadManagementView : MonoBehaviour
         UnbindListeners();
         ClearSquadCards();
         ClearInventoryCards();
+        ClearWarriorCards();
     }
 }

@@ -8,7 +8,10 @@ public sealed class SquadSystemTests
     public void SquadRequiresCommanderAndOneToEightWarriors()
     {
         Assert.That(new SquadData("s", null, new[] { Warrior("w") }).Validate().IsValid, Is.False);
-        Assert.That(new SquadData("s", Commander(), new WarriorData[0]).Validate().IsValid, Is.False);
+        SquadData empty = new SquadData("s", Commander(), new WarriorData[0]);
+        Assert.That(empty.Validate().IsValid, Is.True);
+        Assert.That(empty.Status, Is.EqualTo(PersistentSquadStatus.InactiveNoWarriors));
+        Assert.That(empty.IsBattleEligible, Is.False);
 
         for (int count = 1; count <= 8; count++)
             Assert.That(CreateSquad(count).Validate().IsValid, Is.True);

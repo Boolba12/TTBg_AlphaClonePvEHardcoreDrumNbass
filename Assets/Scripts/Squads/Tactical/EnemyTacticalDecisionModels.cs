@@ -18,6 +18,7 @@ public sealed class EnemyTacticalDecision
     public SquadBattleController Actor { get; }
     public SquadBattleController Target { get; }
     public AbilityDefinition Ability { get; }
+    public AttackDefinition AttackDefinition { get; }
     public SquadMovementPlan MovementPlan { get; }
     public string Reason { get; }
 
@@ -29,6 +30,7 @@ public sealed class EnemyTacticalDecision
         SquadBattleController actor,
         SquadBattleController target,
         AbilityDefinition ability,
+        AttackDefinition attackDefinition,
         SquadMovementPlan movementPlan,
         string reason)
     {
@@ -36,20 +38,23 @@ public sealed class EnemyTacticalDecision
         Actor = actor;
         Target = target;
         Ability = ability;
+        AttackDefinition = attackDefinition;
         MovementPlan = movementPlan;
         Reason = reason ?? string.Empty;
     }
 
     public static EnemyTacticalDecision Attack(
         SquadBattleController actor,
-        SquadBattleController target) =>
+        SquadBattleController target,
+        AttackDefinition definition) =>
         new EnemyTacticalDecision(
             EnemyTacticalActionType.BasicAttack,
             actor,
             target,
             null,
+            definition,
             null,
-            "A valid basic attack has first offensive priority.");
+            $"Selected valid {definition?.Delivery.ToString() ?? "basic"} attack.");
 
     public static EnemyTacticalDecision UseAbility(
         EnemyTacticalActionType actionType,
@@ -63,6 +68,7 @@ public sealed class EnemyTacticalDecision
             target,
             ability,
             null,
+            null,
             reason);
 
     public static EnemyTacticalDecision Move(
@@ -74,6 +80,7 @@ public sealed class EnemyTacticalDecision
             actor,
             target,
             null,
+            null,
             movementPlan,
             "Move through the production movement pipeline to the nearest valid attack cell.");
 
@@ -83,6 +90,7 @@ public sealed class EnemyTacticalDecision
         new EnemyTacticalDecision(
             EnemyTacticalActionType.EndTurn,
             actor,
+            null,
             null,
             null,
             null,
@@ -99,6 +107,7 @@ public sealed class EnemyTacticalTurnSummary
     public int actionCount;
     public int movementCount;
     public int basicAttackCount;
+    public int rangedAttackCount;
     public int abilityCount;
     public int actionPointsAtStart;
     public int actionPointsAtEnd;

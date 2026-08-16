@@ -29,6 +29,7 @@ public sealed class EnemyTacticalAIController : MonoBehaviour
     public int DuplicateBeginRejectedCount { get; private set; }
     public int MovementActionCount { get; private set; }
     public int BasicAttackActionCount { get; private set; }
+    public int RangedAttackActionCount { get; private set; }
     public int AbilityActionCount { get; private set; }
     public int EndTurnRequestCount { get; private set; }
     public int PeakConcurrentRoutineCount { get; private set; }
@@ -183,13 +184,19 @@ public sealed class EnemyTacticalAIController : MonoBehaviour
                         actor,
                         decision.Target,
                         out BattleAttackResult attackResult,
-                        attackService.BasicAttack,
+                        decision.AttackDefinition ?? attackService.BasicAttack,
                         BattleCommandAuthority.TacticalAI) &&
                         attackResult.WasExecuted;
                     if (committed)
                     {
                         BasicAttackActionCount++;
                         summary.basicAttackCount++;
+                        if (decision.AttackDefinition?.Delivery ==
+                            BattleAttackDelivery.Ranged)
+                        {
+                            RangedAttackActionCount++;
+                            summary.rangedAttackCount++;
+                        }
                     }
                     break;
 

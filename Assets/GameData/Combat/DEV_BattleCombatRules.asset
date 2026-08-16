@@ -15,5 +15,7 @@ MonoBehaviour:
   baseHitChance: 0.75
   minimumHitChance: 0.05
   maximumHitChance: 0.95
+  halfCoverHitModifier: -0.2
+  fullCoverHitModifier: -0.4
   maximumPhysicalArmorReduction: 0.8
   minimumDamageOnHit: 1

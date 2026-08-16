@@ -24,6 +24,9 @@ public enum BattleAttackFailureReason
     FriendlyTarget,
     TargetDefeated,
     TargetOutOfRange,
+    TargetTooClose,
+    TargetBeyondRange,
+    LineOfSightBlocked,
     RuntimeFailure
 }
 
@@ -69,6 +72,27 @@ public readonly struct BattleDamageCalculation
     public float ArmorReduction { get; }
 }
 
+public readonly struct BattleAttackTargetEvaluation
+{
+    public BattleAttackTargetEvaluation(
+        BattleAttackValidationResult validation,
+        int gridDistance,
+        LineOfSightResult lineOfSight,
+        GridCoverResult cover)
+    {
+        Validation = validation;
+        GridDistance = Math.Max(0, gridDistance);
+        LineOfSight = lineOfSight;
+        Cover = cover;
+    }
+
+    public BattleAttackValidationResult Validation { get; }
+    public int GridDistance { get; }
+    public LineOfSightResult LineOfSight { get; }
+    public GridCoverResult Cover { get; }
+    public bool IsValid => Validation.IsValid;
+}
+
 public readonly struct BattleAttackPreview
 {
     public BattleAttackPreview(
@@ -85,7 +109,13 @@ public readonly struct BattleAttackPreview
         int targetCurrentHealth,
         int targetMaximumHealth,
         int targetLivingWarriors,
-        string weaponDefinitionId = null)
+        string weaponDefinitionId = null,
+        int gridDistance = 0,
+        int minimumRange = 0,
+        int maximumRange = 0,
+        LineOfSightStatus lineOfSightStatus = LineOfSightStatus.NotRequired,
+        CoverType coverType = CoverType.None,
+        float coverHitModifier = 0f)
     {
         AttackerId = attackerId ?? string.Empty;
         TargetId = targetId ?? string.Empty;
@@ -101,6 +131,12 @@ public readonly struct BattleAttackPreview
         TargetMaximumHealth = Math.Max(0, targetMaximumHealth);
         TargetLivingWarriors = Math.Max(0, targetLivingWarriors);
         WeaponDefinitionId = weaponDefinitionId ?? string.Empty;
+        GridDistance = Math.Max(0, gridDistance);
+        MinimumRange = Math.Max(0, minimumRange);
+        MaximumRange = Math.Max(MinimumRange, maximumRange);
+        LineOfSightStatus = lineOfSightStatus;
+        CoverType = coverType;
+        CoverHitModifier = Math.Clamp(coverHitModifier, -1f, 0f);
     }
 
     public string AttackerId { get; }
@@ -118,6 +154,12 @@ public readonly struct BattleAttackPreview
     public int TargetMaximumHealth { get; }
     public int TargetLivingWarriors { get; }
     public string WeaponDefinitionId { get; }
+    public int GridDistance { get; }
+    public int MinimumRange { get; }
+    public int MaximumRange { get; }
+    public LineOfSightStatus LineOfSightStatus { get; }
+    public CoverType CoverType { get; }
+    public float CoverHitModifier { get; }
 }
 
 [Serializable]
@@ -140,6 +182,10 @@ public sealed class BattleAttackResult
     public bool CommanderDamaged { get; internal set; }
     public bool CommanderDefeated { get; internal set; }
     public bool SquadDefeated { get; internal set; }
+    public int GridDistance { get; internal set; }
+    public LineOfSightStatus LineOfSightStatus { get; internal set; }
+    public CoverType CoverType { get; internal set; }
+    public float HitChance { get; internal set; }
     public BattleAttackFailureReason FailureReason { get; internal set; }
     public string FailureMessage { get; internal set; }
     public bool Succeeded => WasExecuted && FailureReason == BattleAttackFailureReason.None;

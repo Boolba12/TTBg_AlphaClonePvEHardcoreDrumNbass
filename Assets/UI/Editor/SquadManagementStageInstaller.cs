@@ -132,6 +132,7 @@ public static class SquadManagementStageInstaller
         DestroyOwned(canvas.transform, OpenButtonName);
         EnsureOwnership(repository, catalog);
         repository.ConfigureEquipmentMigration(catalog, true);
+        repository.ConfigureDevelopmentReserve(true, 8);
 
         Button openButton = CreateButton(canvas.transform, theme, OpenButtonName, "SQUADS");
         SetRect(openButton.GetComponent<RectTransform>(), new Vector2(.015f, .915f),
@@ -169,7 +170,9 @@ public static class SquadManagementStageInstaller
             out Image portrait, out TMP_Text squadTitle, out TMP_Text commander,
             out TMP_Text status, out TMP_Text stats);
         BuildDetails(center.transform, theme, out TMP_Text composition,
-            out TMP_Text debuffs, out EquipmentSlotView squadWeapon,
+            out TMP_Text debuffs, out RectTransform assignedContent,
+            out WarriorRosterCardView assignedTemplate, out TMP_Text compositionPreview,
+            out EquipmentSlotView squadWeapon,
             out EquipmentSlotView commanderWeapon, out EquipmentSlotView armor,
             out EquipmentSlotView accessory);
         BuildInventory(right.transform, theme, out RectTransform inventoryContent,
@@ -177,7 +180,10 @@ public static class SquadManagementStageInstaller
             out Button weaponsFilter, out Button armorFilter,
             out Button accessoriesFilter, out TMP_Text itemDetails,
             out TMP_Text comparison, out Button equip, out Button unequip,
-            out Button save, out Button close, out TMP_Text operation);
+            out Button save, out Button close, out TMP_Text operation,
+            out RectTransform reserveContent, out WarriorRosterCardView reserveTemplate,
+            out TMP_Text reserveCount, out Button addWarrior,
+            out Button removeWarrior, out Button rotateWarrior);
 
         SerializedObject serialized = new SerializedObject(view);
         Set(serialized, "panelRoot", root);
@@ -192,6 +198,15 @@ public static class SquadManagementStageInstaller
         Set(serialized, "calculatedStats", stats);
         Set(serialized, "compositionSummary", composition);
         Set(serialized, "debuffSummary", debuffs);
+        Set(serialized, "assignedWarriorContent", assignedContent);
+        Set(serialized, "assignedWarriorTemplate", assignedTemplate);
+        Set(serialized, "reserveWarriorContent", reserveContent);
+        Set(serialized, "reserveWarriorTemplate", reserveTemplate);
+        Set(serialized, "reserveCountLabel", reserveCount);
+        Set(serialized, "compositionStatPreview", compositionPreview);
+        Set(serialized, "addWarriorButton", addWarrior);
+        Set(serialized, "removeWarriorButton", removeWarrior);
+        Set(serialized, "rotateWarriorButton", rotateWarrior);
         Set(serialized, "squadWeaponSlot", squadWeapon);
         Set(serialized, "commanderWeaponSlot", commanderWeapon);
         Set(serialized, "armorSlot", armor);
@@ -270,6 +285,8 @@ public static class SquadManagementStageInstaller
 
     private static void BuildDetails(Transform parent, PurgatoryUITheme theme,
         out TMP_Text composition, out TMP_Text debuffs,
+        out RectTransform assignedContent, out WarriorRosterCardView assignedTemplate,
+        out TMP_Text compositionPreview,
         out EquipmentSlotView squadWeapon, out EquipmentSlotView commanderWeapon,
         out EquipmentSlotView armor, out EquipmentSlotView accessory)
     {
@@ -277,13 +294,25 @@ public static class SquadManagementStageInstaller
         composition = CreateText("Composition", parent, theme,
             "COMPOSITION\nNo squad selected.", TextAlignmentOptions.TopLeft,
             theme.CaptionSize - 3f, theme.TextPrimary, true);
-        SetRect(composition.rectTransform, new Vector2(.035f, .44f),
+        SetRect(composition.rectTransform, new Vector2(.035f, .84f),
             new Vector2(.965f, .925f));
+        assignedContent = CreateScroll(parent, theme, new Vector2(.035f, .50f),
+            new Vector2(.965f, .83f));
+        assignedContent.parent.parent.name = "AssignedWarriorsScroll";
+        assignedTemplate = CreateWarriorTemplate(assignedContent, theme,
+            "AssignedWarriorTemplate");
+        assignedTemplate.gameObject.SetActive(false);
+        compositionPreview = CreateText("CompositionStatPreview", parent, theme,
+            "Select an Assigned or Reserve Warrior to preview calculated changes.",
+            TextAlignmentOptions.TopLeft, theme.CaptionSize - 4f,
+            theme.TextSecondary, true);
+        SetRect(compositionPreview.rectTransform, new Vector2(.035f, .385f),
+            new Vector2(.965f, .49f));
         debuffs = CreateText("PersistentDebuffs", parent, theme,
             "PERSISTENT DEBUFFS\nNone", TextAlignmentOptions.TopLeft,
-            theme.CaptionSize - 3f, theme.TextSecondary, true);
+            theme.CaptionSize - 4f, theme.TextSecondary, true);
         SetRect(debuffs.rectTransform, new Vector2(.035f, .315f),
-            new Vector2(.965f, .435f));
+            new Vector2(.965f, .38f));
         squadWeapon = CreateSlot(parent, "SquadWeaponSlot",
             new Vector2(.035f, .17f), new Vector2(.49f, .305f));
         commanderWeapon = CreateSlot(parent, "CommanderWeaponSlot",
@@ -298,20 +327,45 @@ public static class SquadManagementStageInstaller
         out RectTransform content, out ItemPreviewCardView itemTemplate,
         out Button all, out Button weapons, out Button armor, out Button accessories,
         out TMP_Text details, out TMP_Text comparison, out Button equip,
-        out Button unequip, out Button save, out Button close, out TMP_Text operation)
+        out Button unequip, out Button save, out Button close, out TMP_Text operation,
+        out RectTransform reserveContent, out WarriorRosterCardView reserveTemplate,
+        out TMP_Text reserveCount, out Button addWarrior, out Button removeWarrior,
+        out Button rotateWarrior)
     {
-        CreateSectionHeader(parent, theme, "OWNED INVENTORY", .94f, 1f);
+        CreateSectionHeader(parent, theme, "RESERVE & OWNED INVENTORY", .94f, 1f);
+        reserveCount = CreateText("ReserveCount", parent, theme, "RESERVE  0",
+            TextAlignmentOptions.TopLeft, theme.CaptionSize - 2f, theme.Gold);
+        SetRect(reserveCount.rectTransform, new Vector2(.035f, .90f),
+            new Vector2(.965f, .94f));
+        reserveContent = CreateScroll(parent, theme, new Vector2(.03f, .61f),
+            new Vector2(.97f, .895f));
+        reserveContent.parent.parent.name = "ReserveWarriorsScroll";
+        reserveTemplate = CreateWarriorTemplate(reserveContent, theme,
+            "ReserveWarriorTemplate");
+        reserveTemplate.gameObject.SetActive(false);
+
+        addWarrior = CreateButton(parent, theme, "AddWarriorButton", "ADD");
+        removeWarrior = CreateButton(parent, theme, "RemoveWarriorButton", "REMOVE");
+        rotateWarrior = CreateButton(parent, theme, "RotateWarriorButton", "ROTATE");
+        SetRect(addWarrior.GetComponent<RectTransform>(), new Vector2(.03f, .54f),
+            new Vector2(.34f, .60f));
+        SetRect(removeWarrior.GetComponent<RectTransform>(), new Vector2(.345f, .54f),
+            new Vector2(.655f, .60f));
+        SetRect(rotateWarrior.GetComponent<RectTransform>(), new Vector2(.66f, .54f),
+            new Vector2(.97f, .60f));
+
         all = CreateButton(parent, theme, "FilterAll", "ALL");
         weapons = CreateButton(parent, theme, "FilterWeapons", "WEAPONS");
         armor = CreateButton(parent, theme, "FilterArmor", "ARMOR");
         accessories = CreateButton(parent, theme, "FilterAccessories", "ACCESSORIES");
-        SetRect(all.GetComponent<RectTransform>(), new Vector2(.03f, .875f), new Vector2(.255f, .935f));
-        SetRect(weapons.GetComponent<RectTransform>(), new Vector2(.265f, .875f), new Vector2(.50f, .935f));
-        SetRect(armor.GetComponent<RectTransform>(), new Vector2(.51f, .875f), new Vector2(.735f, .935f));
-        SetRect(accessories.GetComponent<RectTransform>(), new Vector2(.745f, .875f), new Vector2(.97f, .935f));
+        SetRect(all.GetComponent<RectTransform>(), new Vector2(.03f, .475f), new Vector2(.255f, .53f));
+        SetRect(weapons.GetComponent<RectTransform>(), new Vector2(.265f, .475f), new Vector2(.50f, .53f));
+        SetRect(armor.GetComponent<RectTransform>(), new Vector2(.51f, .475f), new Vector2(.735f, .53f));
+        SetRect(accessories.GetComponent<RectTransform>(), new Vector2(.745f, .475f), new Vector2(.97f, .53f));
 
-        content = CreateScroll(parent, theme, new Vector2(.03f, .47f),
-            new Vector2(.97f, .865f));
+        content = CreateScroll(parent, theme, new Vector2(.03f, .255f),
+            new Vector2(.97f, .465f));
+        content.parent.parent.name = "OwnedInventoryScroll";
         GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ItemPrefabPath);
         Require(prefab != null, "ItemPreviewCard prefab is missing.");
         GameObject card = (GameObject)PrefabUtility.InstantiatePrefab(prefab, content);
@@ -327,23 +381,57 @@ public static class SquadManagementStageInstaller
 
         details = CreateText("ItemDetails", parent, theme, "Select an owned item.",
             TextAlignmentOptions.TopLeft, theme.CaptionSize - 3f, theme.TextPrimary, true);
-        SetRect(details.rectTransform, new Vector2(.035f, .33f), new Vector2(.965f, .46f));
+        SetRect(details.rectTransform, new Vector2(.035f, .19f), new Vector2(.965f, .25f));
         comparison = CreateText("StatComparison", parent, theme,
             "Select a compatible item to compare calculated stats.",
             TextAlignmentOptions.TopLeft, theme.CaptionSize - 4f, theme.TextSecondary, true);
-        SetRect(comparison.rectTransform, new Vector2(.035f, .145f), new Vector2(.965f, .325f));
+        SetRect(comparison.rectTransform, new Vector2(.035f, .105f), new Vector2(.965f, .185f));
 
         equip = CreateButton(parent, theme, "EquipButton", "EQUIP");
         unequip = CreateButton(parent, theme, "UnequipButton", "UNEQUIP");
         save = CreateButton(parent, theme, "SaveButton", "SAVE");
         close = CreateButton(parent, theme, "CloseButton", "CLOSE");
-        SetRect(equip.GetComponent<RectTransform>(), new Vector2(.03f, .075f), new Vector2(.265f, .135f));
-        SetRect(unequip.GetComponent<RectTransform>(), new Vector2(.275f, .075f), new Vector2(.51f, .135f));
-        SetRect(save.GetComponent<RectTransform>(), new Vector2(.52f, .075f), new Vector2(.745f, .135f));
-        SetRect(close.GetComponent<RectTransform>(), new Vector2(.755f, .075f), new Vector2(.97f, .135f));
+        SetRect(equip.GetComponent<RectTransform>(), new Vector2(.03f, .045f), new Vector2(.265f, .10f));
+        SetRect(unequip.GetComponent<RectTransform>(), new Vector2(.275f, .045f), new Vector2(.51f, .10f));
+        SetRect(save.GetComponent<RectTransform>(), new Vector2(.52f, .045f), new Vector2(.745f, .10f));
+        SetRect(close.GetComponent<RectTransform>(), new Vector2(.755f, .045f), new Vector2(.97f, .10f));
         operation = CreateText("OperationStatus", parent, theme, string.Empty,
             TextAlignmentOptions.Center, theme.CaptionSize - 4f, theme.TextSecondary, true);
-        SetRect(operation.rectTransform, new Vector2(.035f, .01f), new Vector2(.965f, .068f));
+        SetRect(operation.rectTransform, new Vector2(.035f, .005f), new Vector2(.965f, .042f));
+    }
+
+    private static WarriorRosterCardView CreateWarriorTemplate(
+        Transform parent,
+        PurgatoryUITheme theme,
+        string name)
+    {
+        GameObject root = NewUi(name, parent);
+        root.AddComponent<LayoutElement>().preferredHeight = 64f;
+        Image background = root.AddComponent<Image>();
+        background.sprite = theme.ButtonSprite;
+        background.type = Image.Type.Sliced;
+        background.color = theme.SurfaceRaised;
+        Button button = root.AddComponent<Button>();
+        button.targetGraphic = background;
+        TMP_Text identity = CreateText("Identity", root.transform, theme, "Warrior",
+            TextAlignmentOptions.TopLeft, theme.CaptionSize - 3f, theme.Marble);
+        SetRect(identity.rectTransform, new Vector2(.035f, .52f), new Vector2(.68f, .94f));
+        TMP_Text stats = CreateText("Stats", root.transform, theme,
+            "HP -  STR -  DEX -", TextAlignmentOptions.BottomLeft,
+            theme.CaptionSize - 5f, theme.TextSecondary);
+        SetRect(stats.rectTransform, new Vector2(.035f, .08f), new Vector2(.76f, .52f));
+        TMP_Text status = CreateText("Status", root.transform, theme, "RESERVE",
+            TextAlignmentOptions.Center, theme.CaptionSize - 5f, theme.Emerald);
+        SetRect(status.rectTransform, new Vector2(.76f, .18f), new Vector2(.965f, .82f));
+        Image selected = CreateImage("SelectedFrame", root.transform,
+            theme.SelectedFrameSprite, Color.white);
+        Stretch(selected.rectTransform, Vector2.zero, Vector2.one,
+            Vector2.zero, Vector2.zero);
+        selected.raycastTarget = false;
+        selected.gameObject.SetActive(false);
+        WarriorRosterCardView view = root.AddComponent<WarriorRosterCardView>();
+        view.Configure(button, identity, stats, status, selected.gameObject);
+        return view;
     }
 
     private static RectTransform CreateScroll(Transform parent, PurgatoryUITheme theme,

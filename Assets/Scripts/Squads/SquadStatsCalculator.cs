@@ -5,6 +5,26 @@ public static class SquadStatsCalculator
         SquadBattleState battleState = null,
         SquadStatModifiers equipmentModifiers = null)
     {
+        return CalculateCore(data, data?.Warriors, battleState, equipmentModifiers);
+    }
+
+    public static SquadCalculatedStats CalculateComposition(
+        SquadData data,
+        System.Collections.Generic.IReadOnlyList<WarriorData> warriors,
+        EquipmentDefinitionCatalog equipmentCatalog = null)
+    {
+        SquadStatModifiers equipment = equipmentCatalog != null && data != null
+            ? new SquadEquipmentService(equipmentCatalog).BuildEquippedStatModifiers(data)
+            : null;
+        return CalculateCore(data, warriors, null, equipment);
+    }
+
+    private static SquadCalculatedStats CalculateCore(
+        SquadData data,
+        System.Collections.Generic.IReadOnlyList<WarriorData> warriors,
+        SquadBattleState battleState,
+        SquadStatModifiers equipmentModifiers)
+    {
         if (data?.Commander?.baseStats == null)
             return default;
 
@@ -12,9 +32,9 @@ public static class SquadStatsCalculator
         float warriorStrength = 0;
         float warriorDexterity = 0;
 
-        for (int i = 0; i < data.Warriors.Count; i++)
+        for (int i = 0; warriors != null && i < warriors.Count; i++)
         {
-            WarriorData warrior = data.Warriors[i];
+            WarriorData warrior = warriors[i];
             if (warrior == null || !IsAlive(warrior.id, battleState))
                 continue;
 
